@@ -20,18 +20,19 @@ We recommend to set up a virtual environment. To do so:
 sudo apt-get install virtualenv
 virtualenv -p /usr/bin/python3.5 .pyenv
 source .pyenv/bin/activate
-pip -U setuptools pip
+pip install -U setuptools pip
 pip install dist/datagui-x.x.tar.gz
 ```
 
 ### Development Installation
 
 If you want to contribute to the development of DATA GUI, use the 
-script `analyze/pyenv.sh` in the main DATA repository.
-
+script `analysis/pyenv.sh` in the main DATA repository and source the
+virtual environment `analysis/.pyenv/bin/activate`.
 
 ### Running
-You can invoke the DATA GUI directly from the commandline by calling
+Once installed in a python environment, you can invoke the DATA GUI 
+directly from the commandline by calling
 
 * `datagui`
 
@@ -49,6 +50,7 @@ Alternatively, one can provide these files as commandline arguments:
 **NOTE:** It is important that the .pickle and the .zip file correspond 
 to the same analysis run of the same algorithm (e.g., results/rsa).
 Otherwise the GUI is not able to display the content correctly.
+The `framework.zip` is the same for phase1, phase2 and phase3.
 
 ## Application Overview
 ![GUI screenshot][screenshot]

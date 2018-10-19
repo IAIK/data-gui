@@ -30,7 +30,7 @@ setuptools.setup(
       version=DATAGUI_VERSION,
       description='Graphical user interface for the DATA tool',
       long_description=readme(),
-      url='https://github.com/Fraunhofer-AISEC/DATA',
+      url='https://github.com/IAIK/DATA-GUI',
       author='IAIK, Graz University of Technology',
       author_email='data@iaik.tugraz.at',
       license='GPLv3+',
