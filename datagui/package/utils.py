@@ -59,15 +59,22 @@ def appendStackInfo(stack_info):
         debug(5, "[pushStackInfo] Wrong instance!")
 
 
+def getCurrentStackInfo():
+    global stack_index
+    if stack_index >= 0:
+        return leak_stack[stack_index]
+    else:
+        debug(1, "[getCurrentStackInfo] Empty leak_stack: return None")
+        return None
+
 def getPrevStackInfo():
     global stack_index
     if stack_index > 0:
         stack_index -= 1
         return leak_stack[stack_index]
     else:
-        debug(5, "[getPrevStackInfo] Empty leak_stack: return None")
+        debug(1, "[getPrevStackInfo] Empty leak_stack: return None")
         return None
-
 
 def getNextStackInfo():
     global stack_index
@@ -75,9 +82,8 @@ def getNextStackInfo():
         stack_index += 1
         return leak_stack[stack_index]
     else:
-        debug(5, "[getNextStackInfo] stack_index to high: return None")
+        debug(1, "[getNextStackInfo] stack_index to high: return None")
         return None
-
 
 def debuglevel(level):
     global debug_level

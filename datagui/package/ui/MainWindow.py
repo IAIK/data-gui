@@ -21,7 +21,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import sys
 from PyQt5.Qsci import QsciScintilla
 from PyQt5.QtCore import Qt, QVariant, QModelIndex, QItemSelectionModel, QSize
-from PyQt5.QtGui import QIcon, QPalette
+from PyQt5.QtGui import QBrush, QColor, QIcon, QPalette
 from PyQt5.QtWidgets import QMainWindow, QFrame, QSplitter, QHBoxLayout, QAction, QApplication, QTabWidget, \
     QTreeView, QMenu, QStackedWidget, QFileDialog, QStyle, QMessageBox
 from datastub.export import *
@@ -41,7 +41,7 @@ from datagui.package.ui.AsmTabView import AsmTabView
 from datagui.package.ui.SourceTabView import SourceTabView
 from datagui.package.ui.SummaryTab import SummaryTab
 from datagui.package.utils import ErrorCode, CustomRole, IpInfo, info_map, LeakMetaInfo, ColorScheme, LeakFlags, debug, \
-    getCtxName, default_font_size
+    getCtxName, default_font_size, createIconButton
 
 class MainWindow(QMainWindow):
 
@@ -110,6 +110,26 @@ class MainWindow(QMainWindow):
         self.main_toolbar = self.addToolBar('main')
         self.btn_back = utils.createIconButton(QSize(20, 20), LeakFlags.LEFT_ARROW)
         self.btn_forward = utils.createIconButton(QSize(20, 20), LeakFlags.RIGHT_ARROW)
+        self.btn_filter_0 = utils.createIconButton(QSize(20, 20), LeakFlags.OKAY)
+        self.btn_filter_1 = utils.createIconButton(QSize(20, 20), LeakFlags.WARNING)
+        self.btn_filter_2 = utils.createIconButton(QSize(20, 20), LeakFlags.CANCEL)
+        self.btn_filter_3 = utils.createIconButton(QSize(20, 20), LeakFlags.GARBAGE)
+
+        icon_size = QSize(20, 20)
+        self.btn_filter_0 = createIconButton(icon_size, LeakFlags.OKAY)
+        self.btn_filter_1 = createIconButton(icon_size, LeakFlags.WARNING)
+        self.btn_filter_2 = createIconButton(icon_size, LeakFlags.CANCEL)
+        self.btn_filter_3 = createIconButton(icon_size, LeakFlags.GARBAGE)
+
+        self.btn_filter_0.setCheckable(True)
+        self.btn_filter_1.setCheckable(True)
+        self.btn_filter_2.setCheckable(True)
+        self.btn_filter_3.setCheckable(True)
+        self.btn_filter_0.setChecked(True)
+        self.btn_filter_1.setChecked(True)
+        self.btn_filter_2.setChecked(True)
+        self.btn_filter_3.setChecked(True)
+
         self.statusbar = self.statusBar()
         # # # # #
         self.setupMenu()
@@ -215,6 +235,10 @@ class MainWindow(QMainWindow):
         # # # # # #
         self.main_toolbar.addWidget(self.btn_back)
         self.main_toolbar.addWidget(self.btn_forward)
+        self.main_toolbar.addWidget(self.btn_filter_0)
+        self.main_toolbar.addWidget(self.btn_filter_1)
+        self.main_toolbar.addWidget(self.btn_filter_2)
+        self.main_toolbar.addWidget(self.btn_filter_3)
         # # # # # # #
         # STATUSBAR #
         # # # # # # #
@@ -299,6 +323,10 @@ class MainWindow(QMainWindow):
         self.leak_view.clicked.connect(self.leakClicked)
         self.btn_forward.clicked.connect(self.nextLeak)
         self.btn_back.clicked.connect(self.previousLeak)
+        self.btn_filter_0.clicked.connect(self.updateFilter)
+        self.btn_filter_1.clicked.connect(self.updateFilter)
+        self.btn_filter_2.clicked.connect(self.updateFilter)
+        self.btn_filter_3.clicked.connect(self.updateFilter)
 
     def addAsmTab(self, bin_file_path, asm_file_path):
         """Add new tab to asm tab widget.
@@ -440,6 +468,26 @@ class MainWindow(QMainWindow):
                                  src_line_nr, -1, None)
                 utils.info_map[ip] = ip_info
 
+    def updateFilter(self):
+        self.collapseCallHierarchy()
+        self.currentLeak()
+        debug(1, "Update filter")
+
+    def isFilterActive(self, leak_meta):
+        assert isinstance(leak_meta, LeakMetaInfo)
+        leak_flags = leak_meta.flag
+        if leak_flags == LeakFlags.OKAY:
+            return self.btn_filter_0.isChecked()
+        elif leak_flags == LeakFlags.WARNING:
+            return self.btn_filter_1.isChecked()
+        elif leak_flags == LeakFlags.CANCEL:
+            return self.btn_filter_2.isChecked()
+        elif leak_flags == LeakFlags.GARBAGE:
+            return self.btn_filter_3.isChecked()
+        else:
+            debug(0, "Invalid leak flag %s", (str(leak_flags)))
+            return False
+
     def findIptoCallMappings(self, call_item):
         """ Search call hierarchy recursively to find the correct contexts for the leaks.
 
@@ -451,20 +499,21 @@ class MainWindow(QMainWindow):
             dl = call_item.obj.dataleaks[k]
             ip = dl.ip
 
-            if ip in utils.info_map:
-                utils.info_map[ip].call_tree_items.append(call_item)
-
             if dl.meta is None:
                 dl.meta = LeakMetaInfo()
+
+            if ip in utils.info_map:
+                utils.info_map[ip].call_tree_items.append(call_item)
 
         for k in sorted_keys(call_item.obj.cfleaks):
             cf = call_item.obj.cfleaks[k]
             ip = cf.ip
-            if ip in utils.info_map:
-                utils.info_map[ip].call_tree_items.append(call_item)
 
             if cf.meta is None:
                 cf.meta = LeakMetaInfo()
+
+            if ip in utils.info_map:
+                utils.info_map[ip].call_tree_items.append(call_item)
 
         for child_item in call_item.child_items:  # type: CallHierarchyItem
             self.findIptoCallMappings(child_item)
@@ -673,6 +722,45 @@ class MainWindow(QMainWindow):
         self.goToCallee()
         self.setColorScheme(ColorScheme.CALL)
 
+    def collapseCallHierarchyRecursive(self, call_item, parent_index = None):
+        """ Search call hierarchy recursively to find the correct contexts for the leaks.
+
+        Args:
+            call_item: Root item of the call hierarchy
+        """
+        has_active_leaks = False
+        assert isinstance(call_item, CallHierarchyItem)
+        for k in sorted_keys(call_item.obj.dataleaks):
+            dl = call_item.obj.dataleaks[k]
+            assert isinstance(dl.meta, LeakMetaInfo)
+            if self.isFilterActive(dl.meta):
+                has_active_leaks = True
+                break
+        for k in sorted_keys(call_item.obj.cfleaks):
+            cf = call_item.obj.cfleaks[k]
+            assert isinstance(cf.meta, LeakMetaInfo)
+            if self.isFilterActive(cf.meta):
+                has_active_leaks = True
+                break
+
+        index = self.findCallItemIndex(call_item.id, parent_index)
+
+        for child_item in call_item.child_items:  # type: CallHierarchyItem
+            res = self.collapseCallHierarchyRecursive(child_item, index)
+            has_active_leaks = has_active_leaks or res
+        if index is not None:
+            if has_active_leaks:
+                self.call_view.expand(index)
+            else:
+                self.call_view.collapse(index)
+
+        return has_active_leaks
+
+    def collapseCallHierarchy(self):
+        # collapse call hierarchy for all hierarchy items that do not have active leaks
+        # That is, their leaks are filtered
+        self.collapseCallHierarchyRecursive(self.call_model.root_item)
+
     def setColorScheme(self, scheme):
         pal = QPalette()
         if scheme == ColorScheme.CALL:
@@ -724,6 +812,13 @@ class MainWindow(QMainWindow):
         else:
             leak_type = "UNKNOWN_LEAK_TYPE"
             debug(1, "[addLeakItem]: UNKNOWN leak type")
+
+        meta = leak.meta
+        if meta is not None:
+            if not self.isFilterActive(meta):
+                debug(3, "Filtering data leak %x", (leak.ip))
+                return
+
         leak_item = LeakItem("{}: {}".format(leak_type, hex(utils.getLocalIp(leak.ip))), leak)
         leak_item.high_prio_flag = self.getMaxPriority(obj, leak)
         ip_info = info_map[leak.ip]
@@ -844,16 +939,34 @@ class MainWindow(QMainWindow):
         self.selectCallItem(call_item.id)
         self.createLeakList(call_hierarchy)
         leak = self.selectLeakItem(self.call_list_model.selected_leak.ip)
-        assert leak is not None
-        ip_info = info_map[leak.ip]
-        self.selectLibItem(ip_info.lib_tree_item.id)
-        self.adjustEditors(ip_info)
-        self.setupInfoBox(leak)
-        self.setColorScheme(ColorScheme.BOTH)
-        self.recordPrevNextEntry(leak)
+        if leak is None:
+            debug(0, "[callList] Leak is empty. Try to refresh views")
+        else:
+            ip_info = info_map[leak.ip]
+            self.selectLibItem(ip_info.lib_tree_item.id)
+            self.adjustEditors(ip_info)
+            self.setupInfoBox(leak)
+            self.setColorScheme(ColorScheme.BOTH)
+            self.recordPrevNextEntry(leak)
 
-    def selectCallItem(self, call_item_id):
-        index_list = self.call_model.match(self.call_model.index(0, 0, QModelIndex()), CustomRole.Id,
+    def findCallItemIndex(self, call_item_id, start_index = None):
+        if start_index is None:
+            start_index = self.call_model.index(0, 0, QModelIndex())
+        index_list = self.call_model.match(start_index, # start
+                                           CustomRole.Id, # role
+                                           call_item_id, # value
+                                           1, # hits
+                                           Qt.MatchRecursive)
+        if len(index_list) > 0:
+            return index_list[0]
+        else:
+            return None
+
+    def selectCallItem(self, call_item_id, start_index = None):
+        if start_index is None:
+            start_index = self.call_model.index(0, 0, QModelIndex())
+        index_list = self.call_model.match(start_index, 
+                                           CustomRole.Id,
                                            call_item_id, 1, Qt.MatchRecursive)
         if len(index_list) > 0:
             self.call_view.selectionModel().setCurrentIndex(index_list[0], QItemSelectionModel.ClearAndSelect)
@@ -911,10 +1024,20 @@ class MainWindow(QMainWindow):
             assert isinstance(call_hierarchy, CallHistory)
             if isinstance(selected_leak, DataLeak):
                 dl = call_hierarchy.dataleaks[selected_leak]
+                meta = dl.meta
+                assert isinstance(meta, LeakMetaInfo)
+                if not self.isFilterActive(meta):
+                    debug(3, "Filtering data leak %x", (dl.ip))
+                    continue
                 item_leak_tuples.append((item, dl))
                 pass
             elif isinstance(selected_leak, CFLeak):
                 cf = call_hierarchy.cfleaks[selected_leak]
+                meta = cf.meta
+                assert isinstance(meta, LeakMetaInfo)
+                if not self.isFilterActive(meta):
+                    debug(3, "Filtering data leak %x", (cf.ip))
+                    continue
                 item_leak_tuples.append((item, cf))
                 pass
             else:
@@ -962,7 +1085,10 @@ class MainWindow(QMainWindow):
         self.coming_from_call_view is True when coming from call hierarchy or call list selection.
                                    is False when coming from library hierarchy selection or editor indicators.
         """
-
+        if leak is None:
+            debug(1, "Selected leak is filtered")
+            self.statusbar.showMessage('Selected leak is filtered!')
+            return
         if leak.ip in utils.info_map:
             ip_info = info_map[leak.ip]  # type: IpInfo
 
@@ -1010,8 +1136,6 @@ class MainWindow(QMainWindow):
             self.createLeakList(ip_info.call_tree_items[leak_idx].obj)
         # Now select the correct leak
         leak = self.selectLeakItem(stack_info.leak_ip)
-        assert leak is not None
-        assert not isinstance(leak, QVariant)
         self.handleLeakSelection(leak)
 
     def updateFlagIcon(self, leak_ip, flag_id):
@@ -1205,6 +1329,13 @@ class MainWindow(QMainWindow):
             self.btn_forward.setEnabled(True)
         else:
             self.btn_forward.setEnabled(False)
+
+    def currentLeak(self):
+        """Reset views to currently selected leak."""
+
+        stack_info = utils.getCurrentStackInfo()
+        if stack_info:
+            self.restoreLeakSelection(stack_info)
 
     def previousLeak(self):
         """Reset views to previously selected leak."""
