@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   id="svg2"
+   sodipodi:docname="icon.svg"
+   viewBox="0 0 421.61081 569.62646"
+   sodipodi:version="0.32"
+   version="1.0"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape"
+   inkscape:version="0.91 r13725"
+   width="421.61081"
+   height="569.62646"
+   inkscape:export-filename="/home/sweiser/phd/data/data-gui/GUI/img.png"
+   inkscape:export-xdpi="21.329767"
+   inkscape:export-ydpi="21.329767">
+  <defs
+     id="defs21">
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4342">
+      <stop
+         style="stop-color:#2421d1;stop-opacity:1;"
+         offset="0"
+         id="stop4344" />
+      <stop
+         style="stop-color:#2421d1;stop-opacity:0;"
+         offset="1"
+         id="stop4346" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4342"
+       id="linearGradient4348"
+       x1="550.75073"
+       y1="538.71204"
+       x2="713.44757"
+       y2="646.48639"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(1.1877949,0,0,1.2856047,-88.197532,-132.55911)" />
+  </defs>
+  <title
+     id="title3214">Magnifying Glass</title>
+  <sodipodi:namedview
+     id="base"
+     inkscape:zoom="0.34794922"
+     borderopacity="1.0"
+     inkscape:current-layer="g2859"
+     inkscape:cx="255.04346"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1"
+     showgrid="false"
+     inkscape:guide-bbox="true"
+     showguides="true"
+     bordercolor="#666666"
+     inkscape:window-x="2560"
+     guidetolerance="10"
+     objecttolerance="10"
+     inkscape:window-width="1920"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     pagecolor="#ffffff"
+     gridtolerance="10000"
+     inkscape:cy="233.11617"
+     inkscape:document-units="px"
+     inkscape:window-height="983"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0">
+    <sodipodi:guide
+       id="guide2383"
+       position="3.1261087,0.47080036"
+       orientation="1,0" />
+    <sodipodi:guide
+       id="guide2385"
+       position="0.52898334,1.2319461"
+       orientation="0,1" />
+    <sodipodi:guide
+       id="guide2387"
+       position="-0.13851006,1.1466777"
+       orientation="0,1" />
+    <sodipodi:guide
+       id="guide2389"
+       position="-0.12495691,1.092758"
+       orientation="0,1" />
+    <sodipodi:guide
+       id="guide2391"
+       position="2.6517479,0.73162128"
+       orientation="1,0" />
+    <sodipodi:guide
+       id="guide2393"
+       position="0.8017408,0.62127396"
+       orientation="1,0" />
+    <sodipodi:guide
+       id="guide2395"
+       position="0.84917688,0.59619504"
+       orientation="1,0" />
+    <sodipodi:guide
+       id="guide2397"
+       position="3.0783121,0.57357704"
+       orientation="1,0" />
+    <sodipodi:guide
+       id="guide2399"
+       position="3.0303944,0.63919093"
+       orientation="1,0" />
+  </sodipodi:namedview>
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="Layer 2">
+    <path
+       id="path2841-4"
+       style="fill:#abd3c4;fill-opacity:1"
+       d="M 340.79789,-7.5042387 C 432.67474,45.540503 464.19067,163.15804 411.14593,255.03491 364.04098,336.62368 266.02554,370.58819 180.32269,340.03017 173.57965,353.05273 68.655451,551.28698 68.434238,551.67014 c -6.630583,11.4846 -26.313343,16.86561 -49.729131,3.34662 -23.4157866,-13.51902 -35.84486,-27.94934 -29.214268,-39.43395 L 120.06509,305.24069 C 50.709558,246.23031 31.182959,144.42848 78.287896,62.839705 131.33265,-29.037156 248.95018,-60.553079 340.82704,-7.5083369 Z"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cscssccscc" />
+    <g
+       id="g2859"
+       transform="matrix(-2.728,-1.575,-1.575,2.728,4808.0661,1058.6452)"
+       style="">
+      <path
+         id="path2841"
+         style="fill:#000000"
+         d="m 1393.3951,424.60809 c -29.256,0 -53,23.744 -53,53 0,25.98 18.725,47.606 43.406,52.125 -0.1852,4.0398 -2.4601,65.84938 -2.4601,65.97138 0,3.657 3.9587,7.656 11.4149,7.656 7.4562,0 12.4142,-1.73251 12.4142,-5.38951 l -2.1814,-68.23787 c 24.7,-4.53 43.4,-26.15 43.4,-52.13 0,-29.256 -23.744,-53 -53,-53 z"
+         inkscape:connector-curvature="0"
+         sodipodi:nodetypes="cscssccscc" />
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-weight:normal;font-size:2.11799216px;line-height:0%;font-family:sans-serif;letter-spacing:1.59008265px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         x="-1290.6393"
+         y="-271.93033"
+         id="text5375"
+         sodipodi:linespacing="0%"
+         transform="matrix(-0.86602699,-0.49999725,-0.49999725,0.86602699,0,0)"><tspan
+           sodipodi:role="line"
+           id="tspan5377"
+           x="-1290.6393"
+           y="-271.93033" /></text>
+    </g>
+  </g>
+  <g
+     id="layer1"
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     transform="translate(-291.38117,-130.75477)">
+    <path
+       d="m 595.56724,693.76264 c 22.14032,10e-5 42.59886,-15.54936 53.66933,-40.7911 11.07023,-25.24159 6.605,-54.53111 0,-81.58213 -12.75015,-52.21716 -53.66935,-113.72299 -53.66935,-113.72299 -1.2e-4,66.07056 -38.37593,93.6836 -49.44617,118.92519 -11.0702,25.24166 -11.07028,56.91861 2e-5,82.16017 11.07036,25.24165 27.30562,35.01089 49.44617,35.01086 z"
+       id="path4827-3"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="ssscsss"
+       style="fill:url(#linearGradient4348);fill-opacity:1;" />
+    <ellipse
+       style="opacity:1;fill:#808080;fill-opacity:1;stroke:none;stroke-width:0;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;"
+       id="path4165"
+       cx="-1444.2235"
+       cy="-282.28113"
+       rx="35.27771"
+       ry="36.200245"
+       transform="matrix(3.1500173,-5.906e-8,5.906e-8,3.1500173,5099.4473,1189.4)" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:125px;line-height:0%;font-family:sans-serif;letter-spacing:30.03000069px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
+       x="398.77698"
+       y="346.07382"
+       id="text4183-6-8"
+       sodipodi:linespacing="0%"><tspan
+         sodipodi:role="line"
+         id="tspan4185-2-8"
+         x="398.77698"
+         y="346.07382"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:125px;font-family:Comfortaa;-inkscape-font-specification:'Comfortaa Bold';fill:#ffffff;fill-opacity:1">1010</tspan></text>
+  </g>
+  <metadata
+     id="metadata19">
+    <rdf:RDF>
+      <cc:Work>
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <cc:license
+           rdf:resource="http://creativecommons.org/publicdomain/zero/1.0/" />
+        <dc:publisher>
+          <cc:Agent
+             rdf:about="http://openclipart.org/">
+            <dc:title>Openclipart</dc:title>
+          </cc:Agent>
+        </dc:publisher>
+        <dc:title>Magnifying Glass</dc:title>
+        <dc:date>2010-08-06T23:32:51</dc:date>
+        <dc:description />
+        <dc:source>https://openclipart.org/detail/78163/office-glass-magnify-by-sheikh_tuhin</dc:source>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>sheikh_tuhin</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:subject>
+          <rdf:Bag>
+            <rdf:li>clues</rdf:li>
+            <rdf:li>detective</rdf:li>
+            <rdf:li>find</rdf:li>
+            <rdf:li>glass</rdf:li>
+            <rdf:li>looking</rdf:li>
+            <rdf:li>magnify</rdf:li>
+            <rdf:li>magnifying</rdf:li>
+            <rdf:li>mystery</rdf:li>
+            <rdf:li>office</rdf:li>
+            <rdf:li>search</rdf:li>
+            <rdf:li>zoom</rdf:li>
+          </rdf:Bag>
+        </dc:subject>
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/publicdomain/zero/1.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+</svg>
