@@ -115,7 +115,7 @@ class MainWindow(QMainWindow):
         self.info_view = QTabWidget()
         self.coming_from_call_view = False
         self.call_list_view = QTreeView()
-        self.call_list_model = CallListModel()
+        #self.call_list_model = CallListModel()
         self.stacked_widget = QStackedWidget()
         self.stacked_widget.addWidget(self.info_view)
         self.stacked_widget.addWidget(self.call_list_view)
@@ -808,9 +808,9 @@ class MainWindow(QMainWindow):
             return
 
         if self.coming_from_call_view:
-            self.leak_model.root_item.name = "Call Hierarchy Leaks"
+            self.leak_model.header = "Call Hierarchy Leaks"
         else:
-            self.leak_model.root_item.name = "Library Hierarchy Leaks"
+            self.leak_model.header = "Library Hierarchy Leaks"
 
         self.leak_model.clearList()
         for k in sorted_keys(obj.dataleaks):
@@ -819,9 +819,6 @@ class MainWindow(QMainWindow):
         for j in sorted_keys(obj.cfleaks):
             cf = obj.cfleaks[j]
             self.addLeakItem(obj, cf)
-
-        if self.leak_model.rowCount(QModelIndex()) == 0:
-            self.leak_model.appendItem(LeakItem("No leaks detected", None))
 
     def addLeakItem(self, obj, leak):
         """Add single leak item to leak model."""
@@ -953,7 +950,14 @@ class MainWindow(QMainWindow):
             return
 
         call_item = self.call_list_model.data(list_index, CustomRole.CallItem)
+        if isinstance(call_item, QVariant):
+            debug(1, "[callList] Call item is empty")
+            return
+
         call_hierarchy = self.call_list_model.data(list_index, CustomRole.Obj)
+        if isinstance(call_hierarchy, QVariant):
+            debug(1, "[callList] Call hierarchy is empty")
+            return
 
         self.coming_from_call_view = True
         self.selectCallItem(call_item.id)
@@ -1062,8 +1066,9 @@ class MainWindow(QMainWindow):
                 pass
             else:
                 assert False
-
-        self.call_list_model.setupDataWithExisting(selected_leak, item_leak_tuples, self.call_model.root_item.name)
+                return
+        self.call_list_model = CallListModel(selected_leak, item_leak_tuples, self.call_model.header)
+        # TODO: potential locking problem with call_list_model
         self.call_list_view.setModel(self.call_list_model)
         self.stacked_widget.setCurrentIndex(1)
         self.stacked_widget.show()
@@ -1136,6 +1141,7 @@ class MainWindow(QMainWindow):
                     self.setColorScheme(ColorScheme.BOTH)
 
                 elif len(ip_info.call_tree_items) > 1:
+                    # It might happen that the no. call_tree_items is > 1 but all are filtered.
                     self.selectLibItem(ip_info.lib_tree_item.id)
                     self.setColorScheme(ColorScheme.LIB)
                     self.setupCallList(leak, ip_info.call_tree_items)

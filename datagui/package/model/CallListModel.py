@@ -30,87 +30,20 @@ from datagui.package.utils import CustomRole
 
 class CallListModel(BaseTreeModel):
 
-    def __init__(self):
+    def __init__(self, selected_leak, item_leak_tuples, root_name):
         super(CallListModel, self).__init__()
-        self.root_item = None
+        self.name = ""
+        self.items = []
+        self.none_item = CallHierarchyItem("No leaks visible.")
         self.selected_leak = None
+        assert(item_leak_tuples is not None)
+        if len(item_leak_tuples) == 0:
+            return
 
-    # # # # # # # # # # # # #
-    # OVERLOADED FUNCTIONS  #
-    # # # # # # # # # # # # #
-    def headerData(self, section, orientation, role):
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            if section == 0:
-                return self.root_item.name
-
-        return None
-
-    def data(self, index, role):
-        if not index.isValid():
-            return QVariant()
-
-        if role == Qt.DisplayRole:
-            item = index.internalPointer()
-            return item.description
-        elif role == CustomRole.Obj:
-            item = index.internalPointer()
-            return item.data(CustomRole.Obj)
-        elif role == CustomRole.Ip:
-            item = index.internalPointer()
-            return item.data(CustomRole.Ip)
-        elif role == CustomRole.Id:
-            item = index.internalPointer()
-            return item.id
-        elif role == CustomRole.CallItem:
-            return index.internalPointer()
-        elif role == Qt.DecorationRole:
-            if index.column() == 0:
-                flag_id = index.internalPointer().flag_id
-                return utils.getIconById(flag_id)
-            return QVariant()
-        elif role == Qt.ToolTipRole:
-            return index.internalPointer().description
-        else:
-            return QVariant()
-
-    def index(self, row, column, parent):
-        if not self.hasIndex(row, column, parent):
-            return QModelIndex()
-
-        if parent.isValid():
-            parent_item = parent.internalPointer()
-        else:
-            parent_item = self.root_item
-
-        child_item = parent_item.child_items[row]
-        if child_item:
-            return self.createIndex(row, column, child_item)
-        else:
-            return QModelIndex()
-
-    def rowCount(self, parent):
-        if parent.column() > 0:
-            return 0
-
-        if not parent.isValid():
-            parent_item = self.root_item
-        else:
-            parent_item = parent.internalPointer()
-
-        return len(parent_item.child_items)
-
-    def columnCount(self, parent):
-        return 1
-
-    # # # # # # # # #
-    # MY FUNCTIONS  #
-    # # # # # # # # #
-
-    def setupDataWithExisting(self, selected_leak, item_leak_tuples, root_name):
-        if item_leak_tuples is None:
-            return None
-
-        self.root_item = CallHierarchyItem(item_leak_tuples[0][0].name)
+        (item, leak) = item_leak_tuples[0]
+        name = item.name
+        self.name = name
+        self.root_item = CallHierarchyItem(name)
         self.selected_leak = selected_leak
 
         parent = QModelIndex()
@@ -120,22 +53,100 @@ class CallListModel(BaseTreeModel):
         for call_item, leak in item_leak_tuples:
             call_list_item = copy.copy(call_item)
             call_path = self.getCallPath(call_list_item, root_name)
-
+            assert call_list_item.parent_item is not None
             call_list_item.parent_item = self.root_item
             call_list_item.description = call_path
             call_list_item.flag_id = leak.meta.flag
 
-            self.root_item.appendChild(call_list_item)
+            self.items.append(call_list_item)
 
         self.endInsertRows()
+
+    # # # # # # # # # # # # #
+    # OVERLOADED FUNCTIONS  #
+    # # # # # # # # # # # # #
+    def headerData(self, section, orientation, role):
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            return self.name
+        return None
+
+    def data(self, index, role):
+        if not index.isValid():
+            return QVariant()
+
+        if len(self.items) == 0:
+            item = self.none_item
+        else:
+            item = self.items[index.row()]
+
+        if role == Qt.DisplayRole:
+            return item.description
+        elif role == CustomRole.Obj:
+            if len(self.items) == 0:
+                return QVariant()
+            else:
+                return item.data(CustomRole.Obj)
+        elif role == CustomRole.Ip:
+            if len(self.items) == 0:
+                return QVariant()
+            else:
+                return item.data(CustomRole.Ip)
+        elif role == CustomRole.Id:
+            return item.id
+        elif role == CustomRole.CallItem:
+            if len(self.items) == 0:
+                return QVariant()
+            else:
+                return index.internalPointer()
+        elif role == Qt.DecorationRole:
+            if index.column() == 0:
+                return utils.getIconById(item.flag_id)
+            return QVariant()
+        elif role == Qt.ToolTipRole:
+            return item.description
+        else:
+            return QVariant()
+
+    def index(self, row, column, parent):
+        if not self.hasIndex(row, column, parent):
+            return QModelIndex()
+
+        if len(self.items) == 0:
+            # We're empty. Display none_item
+            item = self.none_item
+        else:
+            item = self.items[row]
+
+        if item:
+            return self.createIndex(row, column, item)
+        else:
+            return QModelIndex()
+
+    def rowCount(self, parent):
+        if parent.column() > 0:
+            return 0
+        if len(self.items) == 0:
+            # We're empty. Display none_item
+            return 1
+        return len(self.items)
+
+    def columnCount(self, parent):
+        if parent.isValid():
+            return 0
+        else:
+            return 1
+
+    # # # # # # # # #
+    # MY FUNCTIONS  #
+    # # # # # # # # #
 
     def getCallPath(self, call_item, root_name):
         rec_iterator = call_item
 
         function_names = []
-        while rec_iterator.name != root_name:
+        while rec_iterator.parent_item:
+            print(rec_iterator.name)
             function_name = rec_iterator.name.split(" ")[-1].split("(")[0]
             function_names.insert(0, function_name)
             rec_iterator = rec_iterator.parent_item
-
         return '/'.join(function_names)
