@@ -19,6 +19,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 import sys
+import traceback
+import datetime
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QStandardItem, QPixmap, QColor, QPainter, QBrush, QIcon
 from PyQt5.QtWidgets import QPushButton, QWidget, QStyle
@@ -109,6 +111,7 @@ class ErrorCode:
     INVALID_ZIP = -3
     CANNOT_LOAD_ZIP = -4
     INVALID_COMB_OF_FILES = -5
+    ASSERT = -6
 
 def createKey(tab_index, line_nr):
     """Return dictionary key: 'tab_index:line_nr'"""
@@ -299,10 +302,31 @@ def getColor(value, treshold):
 
 def createIconButton(size, icon_id):
     """Create a icon button which is a QPushButton object."""
-
     btn = QPushButton()
     btn.setIcon(getIconById(icon_id))
     btn.setIconSize(size)
     btn.setFixedSize(QSize(size.width() + 5, size.height() + 5))
 
     return btn
+
+def global_exception_handler(tt, value, tb):
+    fe = traceback.format_exception(tt, value, tb)
+    msg = "".join(fe)
+    debug(0, "ASSERT: %s", msg)
+    try:
+        with open('datagui.log', 'a') as f:
+            f.write("####\\n")
+            f.write(str(datetime.datetime.now()) + "\\n")
+            f.write(msg)
+    except:
+        debug(0, "Error writing datagui.log!")
+    if assert_handler:
+        assert_handler(msg)
+
+assert_handler = None
+
+def register_assert_handler(handler):
+    global assert_handler
+    assert_handler = handler
+
+sys.excepthook = global_exception_handler

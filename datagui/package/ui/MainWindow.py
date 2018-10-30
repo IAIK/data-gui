@@ -19,6 +19,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 import sys
+import datetime
+
 from PyQt5.Qsci import QsciScintilla
 from PyQt5.QtCore import Qt, QVariant, QModelIndex, QItemSelectionModel, QSize
 from PyQt5.QtGui import QBrush, QColor, QIcon, QPalette
@@ -41,7 +43,19 @@ from datagui.package.ui.AsmTabView import AsmTabView
 from datagui.package.ui.SourceTabView import SourceTabView
 from datagui.package.ui.SummaryTab import SummaryTab
 from datagui.package.utils import ErrorCode, CustomRole, IpInfo, info_map, LeakMetaInfo, ColorScheme, LeakFlags, debug, \
-    getCtxName, default_font_size, createIconButton
+    getCtxName, default_font_size, createIconButton, register_assert_handler
+
+mainWindow = None
+
+def assert_handler(msg):
+    dump_path = mainWindow.pickle_path
+    if dump_path is None or dump_path == "":
+        dump_path = "dump.pickle"
+    dump_path += "." + str(datetime.datetime.now().time()) + ".autosave"
+    storepickle(dump_path, mainWindow.call_hierarchy)
+    debug(0, "Dumped pickle file to %s", (dump_path))
+    if mainWindow:
+        mainWindow.askAssert(msg, dump_path)
 
 class MainWindow(QMainWindow):
 
@@ -50,36 +64,42 @@ class MainWindow(QMainWindow):
         self.pickle_path = ""
         self.dialog_path = "."
         self.unsaved_changes = False
-        call_hierarchy = None
+        self.call_hierarchy = None # Only for assert_handler
+        #~ self.leakFilter = LeakFilter()
+        
+        global mainWindow
+        mainWindow = self
+
+        register_assert_handler(assert_handler)
 
         if len(sys.argv) == 3:
             self.pickle_path = sys.argv[1]
             self.dialog_path = os.path.dirname(os.path.abspath(self.pickle_path))
             try:
-                call_hierarchy = loadpickle(self.pickle_path)
+                self.call_hierarchy = loadpickle(self.pickle_path)
             except FileNotFoundError:
                 debug(0, "Please enter a valid pickle file path (mandatory)")
-                exit(ErrorCode.INVALID_PICKLE)
+                sys.exit(ErrorCode.INVALID_PICKLE)
             except:
                 debug(0, "Unable to load pickle file")
-                exit(ErrorCode.CANNOT_LOAD_PICKLE)
+                sys.exit(ErrorCode.CANNOT_LOAD_PICKLE)
 
             try:
                 utils.setupSymbolInfo(sys.argv[2])
             except FileNotFoundError:
                 debug(0, "Please enter a valid zip file path (mandatory)")
-                exit(ErrorCode.INVALID_ZIP)
+                sys.exit(ErrorCode.INVALID_ZIP)
             except:
                 debug(0, "Unable to load zip file")
-                exit(ErrorCode.CANNOT_LOAD_ZIP)
+                sys.exit(ErrorCode.CANNOT_LOAD_ZIP)
         else:
-            call_hierarchy = self.openFiles()
+            self.call_hierarchy = self.openFiles()
 
-        if call_hierarchy is None:
+        if self.call_hierarchy is None:
             debug(0, "Error opening pickle/zip file")
-            exit(ErrorCode.CANNOT_LOAD_PICKLE)
+            sys.exit(ErrorCode.CANNOT_LOAD_PICKLE)
 
-        lib_hierarchy = call_hierarchy.flatten()
+        lib_hierarchy = self.call_hierarchy.flatten()
 
         self.main_view = QFrame(self)
         self.asm_tab = AsmTabView()
@@ -134,7 +154,7 @@ class MainWindow(QMainWindow):
         # # # # #
         self.setupMenu()
         self.setupUI()
-        self.setupCallTree(call_hierarchy)
+        self.setupCallTree(self.call_hierarchy)
         self.setupLibTree(lib_hierarchy)
         self.setupLeakTree()
         self.setupInfoMap(lib_hierarchy)
@@ -397,7 +417,7 @@ class MainWindow(QMainWindow):
                     if addr not in short_info_map:
                         debug(0, "Cannot find addr in short_info_map")
                         debug(0, "(Could be a wrong combination of pickle and zip file?)")
-                        exit(ErrorCode.INVALID_COMB_OF_FILES)
+                        sys.exit(ErrorCode.INVALID_COMB_OF_FILES)
 
                     short_info = short_info_map[addr]
                     assert isinstance(short_info, IpInfoShort)
@@ -1198,10 +1218,10 @@ class MainWindow(QMainWindow):
         if not self.askUnsavedChanges():
             return
 
-        call_hierarchy = self.openFiles()
-        if call_hierarchy is None:
+        self.call_hierarchy = self.openFiles()
+        if self.call_hierarchy is None:
             return
-        lib_hierarchy = call_hierarchy.flatten()
+        lib_hierarchy = self.call_hierarchy.flatten()
 
         """Reset all views and show file dialogs to open pickle and zip files."""
 
@@ -1211,7 +1231,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget.hide()
 
         # Setup
-        self.setupCallTree(call_hierarchy)
+        self.setupCallTree(self.call_hierarchy)
         self.setupLibTree(lib_hierarchy)
         self.setupInfoMap(lib_hierarchy)
         self.setupEmptyTabs()
@@ -1242,6 +1262,20 @@ class MainWindow(QMainWindow):
         else:
             debug(0, "Invalid message box action: {}".format(retval))
             return False
+
+    def askAssert(self, assert_msg, dump_path):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setText("An unexpected assertion happened.")
+        msg.setInformativeText("The current work was stored in " + dump_path)
+        msg.setDetailedText(assert_msg)
+        msg.setWindowTitle("Error")
+        msg.setStandardButtons(QMessageBox.Abort | QMessageBox.Ignore)
+        retval = msg.exec_()
+        if retval & QMessageBox.Abort > 0:
+            sys.exit(ErrorCode.ASSERT)
+        elif retval & QMessageBox.Ignore > 0:
+            pass
 
     def getPickleFileFromDialog(self):
         """Show file dialog to open pickle file and return the pickle content."""
