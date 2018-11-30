@@ -26,6 +26,7 @@ from PyQt5.QtGui import QStandardItem, QPixmap, QColor, QPainter, QBrush, QIcon
 from PyQt5.QtWidgets import QPushButton, QWidget, QStyle
 from datastub.DataFS import DataFS
 from datastub.SymbolInfo import SymbolInfo
+from datastub.export import MyUnpickler
 
 datafs = None
 
@@ -40,6 +41,9 @@ debug_level = 4
 
 default_font_size = 12
 
+def loadipinfo(pfile):
+    unp = MyUnpickler(pfile, encoding='latin1')
+    return unp.load()
 
 class StackInfo:
     """Class to store information to reset views to previously selected leak. """

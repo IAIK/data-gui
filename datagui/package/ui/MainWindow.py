@@ -43,7 +43,7 @@ from datagui.package.ui.AsmTabView import AsmTabView
 from datagui.package.ui.SourceTabView import SourceTabView
 from datagui.package.ui.SummaryTab import SummaryTab
 from datagui.package.utils import ErrorCode, CustomRole, IpInfo, info_map, LeakMetaInfo, ColorScheme, LeakFlags, debug, \
-    getCtxName, default_font_size, createIconButton, register_assert_handler
+    getCtxName, default_font_size, createIconButton, register_assert_handler, loadipinfo
 
 mainWindow = None
 
@@ -80,8 +80,9 @@ class MainWindow(QMainWindow):
             except FileNotFoundError:
                 debug(0, "Please enter a valid pickle file path (mandatory)")
                 sys.exit(ErrorCode.INVALID_PICKLE)
-            except:
+            except Exception as e:
                 debug(0, "Unable to load pickle file")
+                debug(1, "Exception: " + str(e))
                 sys.exit(ErrorCode.CANNOT_LOAD_PICKLE)
 
             try:
@@ -398,7 +399,7 @@ class MainWindow(QMainWindow):
         assert isinstance(lib_hierarchy, LibHierarchy)
 
         with utils.datafs.get_binfile(IP_INFO_FILE) as f:
-            short_info_map = pickle.load(f)
+            short_info_map = loadipinfo(f)
 
         for ip in sorted_keys(lib_hierarchy.entries):
             lib = lib_hierarchy.entries[ip]
