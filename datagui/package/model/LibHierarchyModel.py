@@ -59,7 +59,7 @@ class libHierarchyModel(BaseTreeModel):
 
         if role == Qt.DisplayRole:
             item = index.internalPointer()
-            return item.data(Qt.DisplayRole, index.column())
+            return item.data(Qt.DisplayRole)
         elif role == CustomRole.Obj:
             item = index.internalPointer()
             return item.data(CustomRole.Obj)

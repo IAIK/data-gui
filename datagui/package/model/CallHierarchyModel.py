@@ -24,7 +24,7 @@ from datastub.utils import sorted_keys
 
 from datagui.package.model.BaseTreeItem import BaseTreeItem
 from datagui.package.model.BaseTreeModel import BaseTreeModel
-from datagui.package.utils import CustomRole, CustomType, getCtxName
+from datagui.package.utils import CustomRole, CustomType, getCtxName, LeakFlags
 
 
 class CallHierarchyItem(BaseTreeItem):
@@ -33,6 +33,9 @@ class CallHierarchyItem(BaseTreeItem):
     def __init__(self, name, obj=None, parent=None):
         super(CallHierarchyItem, self).__init__(name, obj, parent)
         self.id = CallHierarchyItem.id = CallHierarchyItem.id + 1
+        self.flag_id = LeakFlags.MISSING;
+        assert self.parent_item == parent
+        self.description = name
 
     def type(self):
         return CustomType.callHierarchyItem
@@ -64,7 +67,7 @@ class CallHierarchyModel(BaseTreeModel):
 
         if role == Qt.DisplayRole:
             item = index.internalPointer()
-            return item.data(Qt.DisplayRole, index.column())
+            return item.data(Qt.DisplayRole)
         elif role == CustomRole.Obj:
             item = index.internalPointer()
             return item.data(CustomRole.Obj)

@@ -22,6 +22,8 @@ from PyQt5.QtCore import QAbstractItemModel, Qt, QModelIndex
 
 class BaseTreeModel(QAbstractItemModel):
     def __init__(self):
+        self.root_item = None
+        self.header = None
         super(BaseTreeModel, self).__init__()
 
     # # # # # # # # # # # # #
@@ -39,8 +41,10 @@ class BaseTreeModel(QAbstractItemModel):
 
     def headerData(self, section, orientation, role):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self.root_item.name
-
+            if self.header:
+                return self.header
+            if self.root_item:
+                return self.root_item.name
         return None
 
     def parent(self, index):

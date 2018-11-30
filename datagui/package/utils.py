@@ -19,11 +19,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 import sys
+import traceback
+import datetime
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QStandardItem, QPixmap, QColor, QPainter, QBrush, QIcon
 from PyQt5.QtWidgets import QPushButton, QWidget, QStyle
 from datastub.DataFS import DataFS
 from datastub.SymbolInfo import SymbolInfo
+from datastub.export import MyUnpickler
 
 datafs = None
 
@@ -34,10 +37,13 @@ src_map = {}  # src_map[src_tab_idx:line_nr] -> global ip
 leak_stack = []
 stack_index = -1
 
-debug_level = 0
+debug_level = 4
 
 default_font_size = 12
 
+def loadipinfo(pfile):
+    unp = MyUnpickler(pfile, encoding='latin1')
+    return unp.load()
 
 class StackInfo:
     """Class to store information to reset views to previously selected leak. """
@@ -59,15 +65,22 @@ def appendStackInfo(stack_info):
         debug(5, "[pushStackInfo] Wrong instance!")
 
 
+def getCurrentStackInfo():
+    global stack_index
+    if stack_index >= 0:
+        return leak_stack[stack_index]
+    else:
+        debug(1, "[getCurrentStackInfo] Empty leak_stack: return None")
+        return None
+
 def getPrevStackInfo():
     global stack_index
     if stack_index > 0:
         stack_index -= 1
         return leak_stack[stack_index]
     else:
-        debug(5, "[getPrevStackInfo] Empty leak_stack: return None")
+        debug(1, "[getPrevStackInfo] Empty leak_stack: return None")
         return None
-
 
 def getNextStackInfo():
     global stack_index
@@ -75,9 +88,8 @@ def getNextStackInfo():
         stack_index += 1
         return leak_stack[stack_index]
     else:
-        debug(5, "[getNextStackInfo] stack_index to high: return None")
+        debug(1, "[getNextStackInfo] stack_index to high: return None")
         return None
-
 
 def debuglevel(level):
     global debug_level
@@ -103,6 +115,7 @@ class ErrorCode:
     INVALID_ZIP = -3
     CANNOT_LOAD_ZIP = -4
     INVALID_COMB_OF_FILES = -5
+    ASSERT = -6
 
 def createKey(tab_index, line_nr):
     """Return dictionary key: 'tab_index:line_nr'"""
@@ -293,10 +306,31 @@ def getColor(value, treshold):
 
 def createIconButton(size, icon_id):
     """Create a icon button which is a QPushButton object."""
-
     btn = QPushButton()
     btn.setIcon(getIconById(icon_id))
     btn.setIconSize(size)
     btn.setFixedSize(QSize(size.width() + 5, size.height() + 5))
 
     return btn
+
+def global_exception_handler(tt, value, tb):
+    fe = traceback.format_exception(tt, value, tb)
+    msg = "".join(fe)
+    debug(0, "ASSERT: %s", msg)
+    try:
+        with open('datagui.log', 'a') as f:
+            f.write("####\\n")
+            f.write(str(datetime.datetime.now()) + "\\n")
+            f.write(msg)
+    except:
+        debug(0, "Error writing datagui.log!")
+    if assert_handler:
+        assert_handler(msg)
+
+assert_handler = None
+
+def register_assert_handler(handler):
+    global assert_handler
+    assert_handler = handler
+
+sys.excepthook = global_exception_handler
