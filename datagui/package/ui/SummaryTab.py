@@ -46,7 +46,7 @@ class SummaryTab(QWidget):
         assert isinstance(leak.meta, LeakMetaInfo)
         self.leak = leak
         self.user_comment = QTextEdit("")
-        self.leak_comment = QTextEdit("")
+        self.leak_details = QLabel(str(self.leak.status))
         self.updateFlagIcon = updateFlagIcon
         self.notifyUnsavedChanges = notifyUnsavedChanges
         self.setupUI()
@@ -71,7 +71,6 @@ class SummaryTab(QWidget):
             self.user_comment.setPlaceholderText("User comments")
         else:
             self.user_comment.setText(comment)
-        self.leak_comment.setText(str(self.leak.status))
 
         # # # # #
         flags_group_box = QGroupBox("Risk Treatment")
@@ -114,10 +113,10 @@ class SummaryTab(QWidget):
         # percent_group_box.setLayout(percent_grid)
         # percent_group_box.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
 
-        summary_layout.addWidget(flags_group_box, 0, 0)
+        summary_layout.addWidget(flags_group_box, 1, 0)
         # summary_layout.addWidget(percent_group_box, 1, 0)
-        #summary_layout.addWidget(self.user_comment, 0, 1, 2, 1)
-        summary_layout.addWidget(self.leak_comment, 0, 1, 2, 1)
+        summary_layout.addWidget(self.user_comment, 1, 1, 1, 1)
+        summary_layout.addWidget(self.leak_details, 0, 1, 1, 1)
 
         lbl_c1.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         lbl_c2.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
