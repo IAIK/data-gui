@@ -710,10 +710,6 @@ class MainWindow(QMainWindow):
     def setAsmIndicator(self, addr, asm_tab_index, line_nr, line_index, end_pos):
         asm_editor = self.asm_tab.widget(asm_tab_index)
         asm_editor.SendScintilla(QsciScintilla.SCI_SETINDICATORCURRENT, 0)
-        # value not used at the moment
-        # Is there a good way to use it again?
-        value = -1
-        asm_editor.SendScintilla(QsciScintilla.SCI_SETINDICATORVALUE, value)
         start_pos = asm_editor.positionFromLineIndex(line_nr, line_index)
         asm_editor.SendScintilla(QsciScintilla.SCI_INDICATORFILLRANGE, start_pos, end_pos)
         key = utils.createKey(asm_tab_index, line_nr)
@@ -722,10 +718,6 @@ class MainWindow(QMainWindow):
     def setSrcIndicator(self, addr, src_tab_index, line_nr, line_index, end_pos):
         src_editor = self.src_tab.widget(src_tab_index)
         src_editor.SendScintilla(QsciScintilla.SCI_SETINDICATORCURRENT, 0)
-        # value not used at the moment
-        # Is there a good way to use it again?
-        value = -1
-        src_editor.SendScintilla(QsciScintilla.SCI_SETINDICATORVALUE, value)
         start_pos = src_editor.positionFromLineIndex(line_nr, line_index)
         end_pos = src_editor.lineLength(line_nr) - line_index
         src_editor.SendScintilla(QsciScintilla.SCI_INDICATORFILLRANGE, start_pos, end_pos)
