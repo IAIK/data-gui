@@ -289,16 +289,16 @@ def getCircle(color):
     return pixmap
 
 
-def getColor(value, treshold):
+def getColor(value, threshold):
     # value    in [0,1]
-    # treshold in [0,1]
+    # threshold in [0,1]
     # HSL = (hue, saturation, lightning)
 
     hue = 120 * (1 - value)
-    saturation = 255 * (1 - treshold)
+    saturation = 255 * (1 - threshold)
     # saturation = 255
     lightness = 100
-    # alpha = 255 * (1 - treshold)
+    # alpha = 255 * (1 - threshold)
     color = QColor()
     color.setHsl(hue, saturation, lightness, 255)
     return color

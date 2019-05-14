@@ -19,8 +19,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 from PyQt5.QtCore import QSize
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QSizePolicy, QGroupBox, QGridLayout, QHBoxLayout, QButtonGroup, QTextEdit, QLabel
-from datastub.leaks import Leak
+from datastub.leaks import Leak, NSLeak, NSPType, SPLeak
 from datagui.package.utils import getCircle, getColor, createIconButton, LeakMetaInfo, LeakFlags, debug
 
 btn_to_flag = {
@@ -54,17 +55,6 @@ class SummaryTab(QWidget):
     def setupUI(self):
 
         summary_layout = QGridLayout()
-        lbl_c1 = QLabel()
-        lbl_c1.setPixmap(getCircle(getColor(0, 0)))
-        lbl_c2 = QLabel()
-        lbl_c2.setPixmap(getCircle(getColor(1, 0)))
-        lbl_c3 = QLabel()
-        lbl_c3.setPixmap(getCircle(getColor(0, 1)))
-        # # # # #
-        lbl1 = QLabel("generic:\t10%")
-        lbl2 = QLabel("specific:\t5%")
-        lbl3 = QLabel("specific:\t3 %")
-        #
         self.user_comment.textChanged.connect(self.commentChanged)
         comment = self.leak.meta.comment
         if comment == "":
@@ -73,7 +63,7 @@ class SummaryTab(QWidget):
             self.user_comment.setText(comment)
 
         # # # # #
-        flags_group_box = QGroupBox("Risk Treatment")
+        flags_group_box = QGroupBox("Rating")
         icon_size = QSize(20, 20)
         flag_0 = createIconButton(icon_size, LeakFlags.OKAY)
         flag_1 = createIconButton(icon_size, LeakFlags.WARNING)
@@ -101,26 +91,40 @@ class SummaryTab(QWidget):
         flags_hbox.addWidget(flag_2)
         flags_hbox.addWidget(flag_3)
         flags_group_box.setLayout(flags_hbox)
+        flags_group_box.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         #
-        # percent_group_box = QGroupBox("Risk")
-        # percent_grid = QGridLayout()
-        # percent_grid.addWidget(lbl_c1, 0, 0)
-        # percent_grid.addWidget(lbl1, 0, 1)
-        # percent_grid.addWidget(lbl_c2, 1, 0)
-        # percent_grid.addWidget(lbl2, 1, 1)
-        # percent_grid.addWidget(lbl_c3, 2, 0)
-        # percent_grid.addWidget(lbl3, 2, 1)
-        # percent_group_box.setLayout(percent_grid)
-        # percent_group_box.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        statistic_group_box = QGroupBox("Statistics")
+        statistic_grid = QGridLayout()
 
-        summary_layout.addWidget(flags_group_box, 1, 0)
-        # summary_layout.addWidget(percent_group_box, 1, 0)
-        summary_layout.addWidget(self.user_comment, 1, 1, 1, 1)
-        summary_layout.addWidget(self.leak_details, 0, 1, 1, 1)
+        rowid = 0
+        if self.leak.status is not None:
+            if self.leak.status.nsperformed:
+                for l in self.leak.status.nsleak:
+                    lbl_circle = QLabel()
+                    lbl_circle.setPixmap(getCircle(getColor(l.normalized(), l.threshold())))
+                    lbl_circle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+                    lbl_text = QLabel("%s: %0.1f%%" % ("generic", l.normalized() * 100.0))
+                    statistic_grid.addWidget(lbl_circle, rowid, 0)
+                    statistic_grid.addWidget(lbl_text, rowid, 1)
+                    rowid += 1
+            if len(self.leak.status.spperformed) > 0:
+                for l in self.leak.status.spleak:
+                    lbl_circle = QLabel()
+                    lbl_circle.setPixmap(getCircle(getColor(l.normalized(), l.threshold())))
+                    lbl_circle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+                    lbl_text = QLabel("%s[%s]: %0.1f%%" % (l.target, l.property, l.normalized() * 100.0))
+                    statistic_grid.addWidget(lbl_circle, rowid, 0)
+                    statistic_grid.addWidget(lbl_text, rowid, 1)
+                    rowid += 1
+        statistic_group_box.setLayout(statistic_grid)
+        statistic_group_box.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        self.leak_details.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Maximum)
 
-        lbl_c1.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        lbl_c2.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        lbl_c3.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        summary_layout.addWidget(flags_group_box, 0, 0)
+        if rowid > 0:
+            summary_layout.addWidget(statistic_group_box, 1, 0)
+        summary_layout.addWidget(self.leak_details, 2, 0)
+        summary_layout.addWidget(self.user_comment, 0, 1, 3, 1)
 
         self.setLayout(summary_layout)
 
