@@ -66,7 +66,7 @@ class MainWindow(QMainWindow):
         self.unsaved_changes = False
         self.call_hierarchy = None # Only for assert_handler
         #~ self.leakFilter = LeakFilter()
-        
+
         global mainWindow
         mainWindow = self
 
@@ -108,7 +108,6 @@ class MainWindow(QMainWindow):
         self.editor_font_size = default_font_size
         self.call_model = CallHierarchyModel()
         self.call_view = QTreeView()
-        self.leak_model = LeakModel()
         self.leak_model = LeakModel()
         self.leak_view = QTreeView()
         self.lib_model = libHierarchyModel()
@@ -982,7 +981,7 @@ class MainWindow(QMainWindow):
     def selectCallItem(self, call_item_id, start_index = None):
         if start_index is None:
             start_index = self.call_model.index(0, 0, QModelIndex())
-        index_list = self.call_model.match(start_index, 
+        index_list = self.call_model.match(start_index,
                                            CustomRole.Id,
                                            call_item_id, 1, Qt.MatchRecursive)
         if len(index_list) > 0:
@@ -1339,6 +1338,7 @@ class MainWindow(QMainWindow):
         self.editor_font_size += 1
         for i in range(self.asm_tab.count() - 1):
             self.asm_tab.changeFontsize(i, self.editor_font_size)
+        for i in range(self.src_tab.count() - 1):
             self.src_tab.changeFontsize(i, self.editor_font_size)
 
     def decreaseFontSize(self):
@@ -1348,6 +1348,7 @@ class MainWindow(QMainWindow):
         self.editor_font_size -= 1
         for i in range(self.asm_tab.count() - 1):
             self.asm_tab.changeFontsize(i, self.editor_font_size)
+        for i in range(self.src_tab.count() - 1):
             self.src_tab.changeFontsize(i, self.editor_font_size)
 
     def updatePrevNextButtons(self):

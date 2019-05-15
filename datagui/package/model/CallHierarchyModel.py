@@ -68,6 +68,9 @@ class CallHierarchyModel(BaseTreeModel):
         if role == Qt.DisplayRole:
             item = index.internalPointer()
             return item.data(Qt.DisplayRole)
+            #name = item.data(Qt.DisplayRole)
+            #call_hierarchy = item.data(CustomRole.Obj)
+            #return "{} {} {}".format(name, len(call_hierarchy.dataleaks), len(call_hierarchy.cfleaks))
         elif role == CustomRole.Obj:
             item = index.internalPointer()
             return item.data(CustomRole.Obj)
