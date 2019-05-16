@@ -25,7 +25,7 @@ from PyQt5.Qsci import QsciScintilla
 from PyQt5.QtCore import Qt, QVariant, QModelIndex, QItemSelectionModel, QSize
 from PyQt5.QtGui import QBrush, QColor, QIcon, QPalette
 from PyQt5.QtWidgets import QMainWindow, QFrame, QSplitter, QHBoxLayout, QAction, QApplication, QTabWidget, \
-    QTreeView, QMenu, QStackedWidget, QFileDialog, QStyle, QMessageBox
+    QTreeView, QMenu, QStackedWidget, QFileDialog, QStyle, QMessageBox, QHeaderView
 from datastub.export import *
 from datastub.DataFS import *
 from datastub.IpInfoShort import *
@@ -304,6 +304,7 @@ class MainWindow(QMainWindow):
     def setupCallTree(self, call_hierarchy):
         self.call_model.setupData(call_hierarchy)
         self.call_view.setModel(self.call_model)
+        self.call_view.header().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.call_view.setContextMenuPolicy(Qt.CustomContextMenu)
 
     def setupLibTree(self, lib_hierarchy):

@@ -35,7 +35,7 @@ class CallHierarchyItem(BaseTreeItem):
         self.id = CallHierarchyItem.id = CallHierarchyItem.id + 1
         self.flag_id = LeakFlags.MISSING;
         assert self.parent_item == parent
-        self.description = name
+        #self.description = name
 
     def type(self):
         return CustomType.callHierarchyItem
@@ -67,10 +67,23 @@ class CallHierarchyModel(BaseTreeModel):
 
         if role == Qt.DisplayRole:
             item = index.internalPointer()
-            return item.data(Qt.DisplayRole)
-            #name = item.data(Qt.DisplayRole)
-            #call_hierarchy = item.data(CustomRole.Obj)
-            #return "{} {} {}".format(name, len(call_hierarchy.dataleaks), len(call_hierarchy.cfleaks))
+            call_hierarchy = item.data(CustomRole.Obj)
+            if index.column() == 0:
+                return item.data(Qt.DisplayRole)
+            elif index.column() == 1:
+                dataleaks = len(call_hierarchy.dataleaks)
+                if dataleaks > 0:
+                    return "{}".format(dataleaks)
+                else:
+                    return ""
+            elif index.column() == 2:
+                cfleaks = len(call_hierarchy.cfleaks)
+                if cfleaks > 0:
+                    return "{}".format(cfleaks)
+                else:
+                    return ""
+            else:
+                return ""
         elif role == CustomRole.Obj:
             item = index.internalPointer()
             return item.data(CustomRole.Obj)
@@ -110,6 +123,15 @@ class CallHierarchyModel(BaseTreeModel):
             parent_item = parent.internalPointer()
 
         return len(parent_item.child_items)
+
+    def columnCount(self, parent):
+        return 3
+
+    def headerData(self, section, orientation, role):
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
+                return ["Call Hierarchy", "D", "CF"][section]
+        return None
 
     # # # # # # # # #
     # MY FUNCTIONS  #
