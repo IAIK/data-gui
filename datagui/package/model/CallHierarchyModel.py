@@ -82,6 +82,16 @@ class CallHierarchyModel(BaseTreeModel):
                     return "{}".format(cfleaks)
                 else:
                     return ""
+            elif index.column() == 3:
+                txt = ""
+                allleaks = list()
+                allleaks.extend(call_hierarchy.dataleaks)
+                allleaks.extend(call_hierarchy.cfleaks)
+                if len(allleaks) > 0:
+                    max_leak_normalized = max( (l.status.max_leak_normalized() for l in allleaks) )
+                    if max_leak_normalized > 0.00:
+                        txt = "%0.1f%%" % (max_leak_normalized * 100)
+                return txt
             else:
                 return ""
         elif role == CustomRole.Obj:
@@ -125,12 +135,12 @@ class CallHierarchyModel(BaseTreeModel):
         return len(parent_item.child_items)
 
     def columnCount(self, parent):
-        return 3
+        return 4
 
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                return ["Call Hierarchy", "D", "CF"][section]
+                return ["Call Hierarchy", "D", "CF", "leakage %"][section]
         return None
 
     # # # # # # # # #

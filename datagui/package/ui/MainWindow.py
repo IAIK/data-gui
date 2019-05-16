@@ -734,6 +734,7 @@ class MainWindow(QMainWindow):
         self.createLeakList(call_hierarchy)
         self.goToCallee()
         self.setColorScheme(ColorScheme.CALL)
+        #self.call_view.setFocus()
 
     def collapseCallHierarchyRecursive(self, call_item, parent_index = None):
         """ Search call hierarchy recursively to find the correct contexts for the leaks.
@@ -829,7 +830,17 @@ class MainWindow(QMainWindow):
                 debug(3, "Filtering data leak %x", (leak.ip))
                 return
 
-        leak_item = LeakItem("{}: {}".format(leak_type, hex(utils.getLocalIp(leak.ip))), leak)
+        leak_detail_short = ""
+        is_leak = leak.status.is_generic_leak() or leak.status.is_specific_leak()
+        if is_leak:
+            normalized = leak.status.max_leak_normalized()
+            if normalized >= 0.05:
+                leak_detail_short = " (%0.1f%%)" % (normalized * 100)
+
+        leak_item = LeakItem("{}: {}{}".format(
+            leak_type, hex(utils.getLocalIp(leak.ip)),
+            leak_detail_short
+        ), leak)
         leak_item.high_prio_flag = self.getMaxPriority(obj, leak)
         ip_info = info_map[leak.ip]
         self.updateMarginSymbol(ip_info, leak_item.high_prio_flag)
