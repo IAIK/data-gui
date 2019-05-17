@@ -834,7 +834,7 @@ class MainWindow(QMainWindow):
         is_leak = leak.status.is_generic_leak() or leak.status.is_specific_leak()
         if is_leak:
             normalized = leak.status.max_leak_normalized()
-            if normalized >= 0.05:
+            if normalized >= 0.005:
                 leak_detail_short = " (%0.1f%%)" % (normalized * 100)
 
         leak_item = LeakItem("{}: {}{}".format(
