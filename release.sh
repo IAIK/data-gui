@@ -74,7 +74,7 @@ done
 #------------------------------------------------------------------------
 ENV=.pyenv
 rm -rf ${ENV}
-LOAD_PYENV_INTERPRETER=/usr/bin/python3.5
+LOAD_PYENV_INTERPRETER=/usr/bin/python3
 virtualenv -p ${LOAD_PYENV_INTERPRETER} ${ENV}
 source ${ENV}/bin/activate
 pip install --upgrade pip
