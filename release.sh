@@ -20,13 +20,39 @@
 # @brief Sets up a Python virtual environment.
 # @author Samuel Weiser <samuel.weiser@iaik.tugraz.at>
 # @license This project is released under the GNU GPLv3 License.
-# @version 1.1
 #########################################################################
+
+VER=$(python -c 'from datagui import DATAGUI_VERSION; print(DATAGUI_VERSION)')
+VER_ORIG=$VER
+
+#------------------------------------------------------------------------
+# Check whether parent repository is on 'master'
+#------------------------------------------------------------------------
+GUICI=$(git rev-parse HEAD)
+GUIBRANCH=$(git rev-parse --abbrev-ref HEAD)
+pushd ..
+DATACI=$(git rev-parse HEAD)
+DATABRANCH=$(git rev-parse --abbrev-ref HEAD)
+DEVELOP=0
+if ! [[ "${DATABRANCH}" == "master" ]] || ! [ "${GUIBRANCH}" == "master" ]]; then
+  if ! [[ "$1" == "-f" ]]; then
+    echo "GUI and DATA repo must be on master branch!"
+    echo "This ensures that a DATA GUI package only include released"
+    echo "DATA files."
+    echo ""
+    echo "To still continue for a development package, append -f"
+    exit 1
+  else
+    DEVELOP=1
+    VER="${VER}-DATA-${DATABRANCH}-${DATACI:0:7}-GUI-${GUIBRANCH}-${GUICI:0:7}"
+    echo "Creating develop version: $VER"
+  fi
+fi
+popd
 
 #------------------------------------------------------------------------
 # Check version number
 #------------------------------------------------------------------------
-VER=$(python -c 'from datagui import DATAGUI_VERSION; print(DATAGUI_VERSION)')
 export TAR=dist/datagui-${VER}.tar.gz
 
 if [[ -f "${TAR}" ]]; then
@@ -34,18 +60,6 @@ if [[ -f "${TAR}" ]]; then
   echo "Increment version number in datagui/__init__.py"
   exit 1
 fi
-
-#------------------------------------------------------------------------
-# Check whether parent repository is on 'master'
-#------------------------------------------------------------------------
-pushd ..
-if ! [[ "$(git rev-parse --abbrev-ref HEAD)" == "master" ]]; then
-  echo "Parent DATA repo must be on master branch. since DATA GUI"
-  echo "This ensures that a DATA GUI package only include released"
-  echo "DATA files."
-  exit 1
-fi
-popd
 
 #------------------------------------------------------------------------
 # Update version number in all license headers
@@ -57,21 +71,44 @@ if ! [[ -z "${UNTRACKED}" ]]; then
   exit 1
 fi
 
+UNCOMMITTED=$(git diff-index HEAD)
+if ! [[ -z "${UNCOMMITTED}" ]]; then
+  echo "You have uncommitted files. Commit or stash them!"
+  echo "${UNCOMMITTED}"
+  exit 1
+fi
+
 echo "Setting version number"
 for f in `git ls-files`; do
+  if [[ "$f" == "release.sh" ]]; then
+    continue
+  fi
   grep "@version" $f > /dev/null
   if [[ "$?" -eq "0" ]]; then
     echo "Setting version number in $f"
     # search for '@version' string and 
     # replace the following version number with ${VER}
-    # xxx can be digits and dots
-    sed -i "s/\(@version\s\+\)[.0-9]\+/\1${VER}/g" $f
+    sed -i "s/\(@version\s*\).*/\1${VER}/g" $f
+  fi
+done
+
+for f in `git ls-files`; do
+  if [[ "$f" == "release.sh" ]]; then
+    continue
+  fi
+  grep "DATAGUI_VERSION" $f > /dev/null
+  if [[ "$?" -eq "0" ]]; then
+    echo "Setting version number in $f"
+    # search for 'DATAGUI_VERSION' string and 
+    # replace the following version number with ${VER}
+    sed -i "s/\(DATAGUI_VERSION\s*=\s*\).*/\1'${VER}'/g" $f
   fi
 done
 
 #------------------------------------------------------------------------
 # Create fresh environment
 #------------------------------------------------------------------------
+set -e
 ENV=.pyenv
 rm -rf ${ENV}
 LOAD_PYENV_INTERPRETER=/usr/bin/python3
@@ -79,11 +116,23 @@ virtualenv -p ${LOAD_PYENV_INTERPRETER} ${ENV}
 source ${ENV}/bin/activate
 pip install --upgrade pip
 pip install --upgrade setuptools
+set +e
 
 #------------------------------------------------------------------------
 # Package DATA GUI
 #------------------------------------------------------------------------
-python setup.py sdist
+python setup.py sdist || retval=$?
+if [[ "$retval" -ne "0" ]] || ! [[ -f "${TAR}" ]]; then
+  echo "Failed to create python package"
+  exit 1
+fi
+
+if [[ "${DEVELOP}" -eq "1" ]]; then
+  echo "Reverting temporary @version changes"
+  git checkout .
+else
+  echo "Please commit the @version changes"
+fi
 
 #------------------------------------------------------------------------
 # Try to install and run package
