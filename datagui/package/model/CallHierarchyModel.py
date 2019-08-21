@@ -153,7 +153,8 @@ class CallHierarchyModel(BaseTreeModel):
 
         if call_hierarchy.parent is None:
             self.root_item = CallHierarchyItem("Call Hierarchy", call_hierarchy)
-            self.setupData(call_hierarchy.children[next(iter(call_hierarchy.children))], self.root_item)
+            if len(call_hierarchy.children) > 0:
+                self.setupData(call_hierarchy.children[next(iter(call_hierarchy.children))], self.root_item)
         else:
             call_hierarchy_item = CallHierarchyItem("{}".format(getCtxName(call_hierarchy.ctxt.callee)),
                                                     call_hierarchy, parent)

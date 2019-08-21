@@ -77,6 +77,8 @@ class MainWindow(QMainWindow):
             self.dialog_path = os.path.dirname(os.path.abspath(self.pickle_path))
             try:
                 self.call_hierarchy = loadpickle(self.pickle_path)
+                if not self.call_hierarchy:
+                    raise FileNotFoundError()
             except FileNotFoundError:
                 debug(0, "Please enter a valid pickle file path (mandatory)")
                 sys.exit(ErrorCode.INVALID_PICKLE)
