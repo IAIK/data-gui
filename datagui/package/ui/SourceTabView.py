@@ -79,7 +79,8 @@ class SourceTabView(QTabWidget):
         editor.setLexer(lexer)
         self.setSourceCode(editor, source_file)
 
-        # Set margin and markers (now that we have set the font)
+        # MARGIN AND MARKERS
+        # ------
         self.setMargin(editor, editor.textHeight(0))
 
 

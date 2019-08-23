@@ -23,7 +23,7 @@ import datetime
 
 from PyQt5.Qsci import QsciScintilla
 from PyQt5.QtCore import Qt, QVariant, QModelIndex, QItemSelectionModel, QSize
-from PyQt5.QtGui import QBrush, QColor, QIcon, QPalette
+from PyQt5.QtGui import QBrush, QColor, QIcon, QPalette, QFont, QFontMetrics
 from PyQt5.QtWidgets import QMainWindow, QFrame, QSplitter, QHBoxLayout, QAction, QApplication, QTabWidget, \
     QTreeView, QMenu, QStackedWidget, QFileDialog, QStyle, QMessageBox, QHeaderView
 from datastub.export import *
@@ -130,14 +130,16 @@ class MainWindow(QMainWindow):
         self.info_splitter = QSplitter(Qt.Vertical)
         self.main_hbox = QHBoxLayout(self.main_view)
         self.main_toolbar = self.addToolBar('main')
-        icon_size = QSize(20, 20)
+        # # # # #
+        # Filter Buttons
+        icon_size = QFontMetrics(QFont()).size(0,"A").height()
+        icon_size = QSize(icon_size, icon_size)
         self.btn_back = createIconButton(icon_size, LeakFlags.LEFT_ARROW)
         self.btn_forward = createIconButton(icon_size, LeakFlags.RIGHT_ARROW)
         self.btn_filter_0 = createIconButton(icon_size, LeakFlags.NOLEAK)
         self.btn_filter_1 = createIconButton(icon_size, LeakFlags.INVESTIGATE)
         self.btn_filter_2 = createIconButton(icon_size, LeakFlags.LEAK)
         self.btn_filter_3 = createIconButton(icon_size, LeakFlags.DONTCARE)
-
         self.btn_filter_0.setCheckable(True)
         self.btn_filter_1.setCheckable(True)
         self.btn_filter_2.setCheckable(True)
@@ -146,7 +148,7 @@ class MainWindow(QMainWindow):
         self.btn_filter_1.setChecked(True)
         self.btn_filter_2.setChecked(True)
         self.btn_filter_3.setChecked(True)
-
+        # # # # #
         self.statusbar = self.statusBar()
         # # # # #
         self.setupMenu()
