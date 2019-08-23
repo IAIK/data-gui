@@ -19,8 +19,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 import sys
+import os
 import traceback
 import datetime
+from pkg_resources import resource_filename
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QStandardItem, QPixmap, QColor, QPainter, QBrush, QIcon
 from PyQt5.QtWidgets import QPushButton, QWidget, QStyle
@@ -243,7 +245,6 @@ class LeakFlags:
     RIGHT_ARROW = 4
     LEFT_ARROW = 5
 
-
 class LeakMetaInfo:
     def __init__(self):
         self.flag = LeakFlags.INVESTIGATE
@@ -259,8 +260,11 @@ class LeakMetaInfo:
 
         return string
 
+def getResourcePath(*args):
+    path = os.path.join(os.path.sep, '..', 'resources', *args)
+    return resource_filename(__package__, path)
 
-def getIconById(flag_id):
+def getIconById_qt(flag_id):
     """Create a QIcon for a given flag id.
 
     Returns:
@@ -284,6 +288,34 @@ def getIconById(flag_id):
     else:
         debug(1, "[getIconById] UNKNOWN flag id: %d", flag_id)
         return None
+
+def getIconById(flag_id):
+    """Create a QIcon for a given flag id.
+
+    Returns:
+        A QIcon if the given flag_id is valid, None otherwise.
+    """
+
+    if flag_id == LeakFlags.NOLEAK:
+        filename = "icons8-ok-90.png"
+    elif flag_id == LeakFlags.INVESTIGATE:
+        filename = "icons8-query-100.png"
+    elif flag_id == LeakFlags.LEAK:
+        filename = "icons8-piping-100.png"
+    elif flag_id == LeakFlags.DONTCARE:
+        filename = "icons8-waste-100.png"
+    elif flag_id == LeakFlags.RIGHT_ARROW:
+        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_ArrowRight")))
+    elif flag_id == LeakFlags.LEFT_ARROW:
+        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_ArrowLeft")))
+    elif flag_id == LeakFlags.MISSING:
+        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_MessageBoxQuestion")))
+    else:
+        debug(1, "[getIconById] UNKNOWN flag id: %d", flag_id)
+        return None
+    icon = QIcon()
+    icon.addFile(getResourcePath('icons', filename), size = QSize(50, 50))
+    return icon
 
 def getIconTooltipById(flag_id):
     """Return a tooltip for a given flag id.

@@ -43,7 +43,7 @@ from datagui.package.ui.AsmTabView import AsmTabView
 from datagui.package.ui.SourceTabView import SourceTabView
 from datagui.package.ui.SummaryTab import SummaryTab
 from datagui.package.utils import ErrorCode, CustomRole, IpInfo, info_map, LeakMetaInfo, ColorScheme, LeakFlags, debug, \
-    getCtxName, default_font_size, createIconButton, register_assert_handler, loadipinfo, leakToStr
+    getCtxName, default_font_size, createIconButton, register_assert_handler, loadipinfo, leakToStr, getResourcePath
 
 mainWindow = None
 
@@ -543,7 +543,7 @@ class MainWindow(QMainWindow):
 
     def setupWindowInfo(self):
         self.setWindowTitle('DATA - Differential Address Trace Analysis ' + DATAGUI_VERSION)
-        window_icon = QIcon('resources/icons/window_icon.png')
+        window_icon = QIcon(getResourcePath('icons', 'window_icon.png'))
         window_icon.actualSize(QSize(50, 50))
         self.setWindowIcon(window_icon)
         self.setGeometry(100, 100, 1600, 700)
