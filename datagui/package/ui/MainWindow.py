@@ -543,7 +543,7 @@ class MainWindow(QMainWindow):
 
     def setupWindowInfo(self):
         self.setWindowTitle('DATA - Differential Address Trace Analysis ' + DATAGUI_VERSION)
-        window_icon = QIcon(getResourcePath('icons', 'window_icon.png'))
+        window_icon = QIcon(getResourcePath('icons', 'icons8-piping-100.png'))
         window_icon.actualSize(QSize(50, 50))
         self.setWindowIcon(window_icon)
         self.setGeometry(100, 100, 1600, 700)
