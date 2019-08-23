@@ -64,7 +64,8 @@ class CallHierarchyModel(BaseTreeModel):
     def data(self, index, role):
         if not index.isValid():
             return QVariant()
-
+        if role == Qt.ToolTipRole:
+            return 'ToolTip'
         if role == Qt.DisplayRole:
             item = index.internalPointer()
             call_hierarchy = item.data(CustomRole.Obj)
@@ -141,6 +142,8 @@ class CallHierarchyModel(BaseTreeModel):
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
                 return ["Call Hierarchy", "D", "CF", "leakage %"][section]
+        elif role == Qt.ToolTipRole:
+            return ["Call stack information", "Data differences (phase one)", "Control-flow differences (phase one)", "Max. leakage (phase two/three)"][section]
         return None
 
     # # # # # # # # #
