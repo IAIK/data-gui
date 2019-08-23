@@ -21,6 +21,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 from PyQt5.QtCore import QSize
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QSizePolicy, QGroupBox, QGridLayout, QHBoxLayout, QButtonGroup, QTextEdit, QLabel
+from PyQt5.QtGui import QColor, QFont, QFontMetrics
 from datastub.leaks import Leak, NSLeak, NSPType, SPLeak
 from datagui.package.utils import getCircle, getColor, createIconButton, LeakMetaInfo, LeakFlags, debug
 
@@ -64,7 +65,11 @@ class SummaryTab(QWidget):
 
         # # # # #
         flags_group_box = QGroupBox("Rating")
-        icon_size = QSize(20, 20)
+        #icon_size = QSize(20, 20)
+        font_size = QFontMetrics(self.user_comment.currentFont()).size(0,"A").height()
+        font_size *= 1.1
+        icon_size = QSize(font_size, font_size)
+        
         flag_0 = createIconButton(icon_size, LeakFlags.NOLEAK)
         flag_1 = createIconButton(icon_size, LeakFlags.INVESTIGATE)
         flag_2 = createIconButton(icon_size, LeakFlags.LEAK)
