@@ -19,8 +19,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 from PyQt5.Qsci import QsciScintilla, QsciLexerCPP
-from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QColor, QFont
+from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtGui import QColor, QFont, QFontMetrics
 from PyQt5.QtWidgets import QTabWidget, QFrame
 
 from datagui.package.utils import LeakFlags, getIconById, debug, default_font_size
@@ -54,34 +54,11 @@ class SourceTabView(QTabWidget):
         # ------
         editor.setMarginsForegroundColor(QColor("#ff888888"))
 
-        # DEFINE MARKERS
-        # --------------
-        icon_ok = getIconById(LeakFlags.NOLEAK)
-        icon_warning = getIconById(LeakFlags.INVESTIGATE)
-        icon_cancel = getIconById(LeakFlags.LEAK)
-        icon_default = getIconById(LeakFlags.DONTCARE)
-        icon_arrow_right = getIconById(LeakFlags.RIGHT_ARROW)
-        #
-        sym_0 = icon_ok.pixmap(QSize(16, 16))
-        sym_1 = icon_warning.pixmap(QSize(16, 16))
-        sym_2 = icon_cancel.pixmap(QSize(16, 16))
-        sym_3 = icon_default.pixmap(QSize(16, 16))
-        sym_4 = icon_arrow_right.pixmap(QSize(16, 16))
-        #
-        editor.markerDefine(sym_0, LeakFlags.NOLEAK)
-        editor.markerDefine(sym_1, LeakFlags.INVESTIGATE)
-        editor.markerDefine(sym_2, LeakFlags.LEAK)
-        editor.markerDefine(sym_3, LeakFlags.DONTCARE)
-        editor.markerDefine(sym_4, LeakFlags.RIGHT_ARROW)
-        editor.setMarginMarkerMask(1, 0b11111)
-
         # - LineNumber - margin 0
         editor.setMarginType(0, QsciScintilla.NumberMargin)
-        editor.setMarginWidth(0, "000000")
 
         # - LeakMarker - margin 1
         editor.setMarginType(1, QsciScintilla.SymbolMargin)
-        editor.setMarginWidth(1, "000")
         editor.setMarginSensitivity(1, True)
 
         # SIGNALS
@@ -102,6 +79,10 @@ class SourceTabView(QTabWidget):
         editor.setLexer(lexer)
         self.setSourceCode(editor, source_file)
 
+        # Set margin and markers (now that we have set the font)
+        self.setMargin(editor, editor.textHeight(0))
+
+
         tab_index = self.addTab(editor, source_file.name.split("/")[-1])
         return tab_index
 
@@ -118,7 +99,49 @@ class SourceTabView(QTabWidget):
     def marginLeftClick(self, margin_nr, line_nr, state):
         debug(5, "[SRC] marginLeftClick\n\tmargin_nr: %d, line_nr: %d, state: %d", (margin_nr, line_nr, state))
 
+    def setMargin(self, editor, height):
+        size = QSize(height,height)
+        #
+        icon_ok = getIconById(LeakFlags.NOLEAK)
+        icon_warning = getIconById(LeakFlags.INVESTIGATE)
+        icon_cancel = getIconById(LeakFlags.LEAK)
+        icon_default = getIconById(LeakFlags.DONTCARE)
+        icon_arrow_right = getIconById(LeakFlags.RIGHT_ARROW)
+        #
+        sym_0 = icon_ok.pixmap(size)
+        sym_1 = icon_warning.pixmap(size)
+        sym_2 = icon_cancel.pixmap(size)
+        sym_3 = icon_default.pixmap(size)
+        sym_4 = icon_arrow_right.pixmap(size)
+        #
+        editor.markerDefine(sym_0, LeakFlags.NOLEAK)
+        editor.markerDefine(sym_1, LeakFlags.INVESTIGATE)
+        editor.markerDefine(sym_2, LeakFlags.LEAK)
+        editor.markerDefine(sym_3, LeakFlags.DONTCARE)
+        editor.markerDefine(sym_4, LeakFlags.RIGHT_ARROW)
+        editor.setMarginMarkerMask(1, 0b11111)
+
+        # set margin width (based on updated font size)
+        editor.setMarginWidth(0, "00000")
+        editor.setMarginWidth(1, "000")
+
     def changeFontsize(self, lexer_index, font_size):
+        if lexer_index == -1:
+            for i in range(len(self.lexer_list) - 1):
+                self.changeFontsize(i, font_size)
+            return
+
         lexer = self.lexer_list[lexer_index]
-        new_font = QFont("monospace", font_size, QFont.Normal)
-        lexer.setFont(new_font)
+        if font_size >= 0:
+            new_font = QFont("monospace", font_size, QFont.Normal)
+            lexer.setFont(new_font)
+        editor = lexer.editor()
+        #icon_size = QFontMetrics(lexer.font(0)).size(0,"A").height()
+        icon_size = editor.textHeight(0)
+        #icon_size = min(icon_size, editor.marginWidth(1))
+        self.setMargin(editor, icon_size)
+
+    def wheelEvent(self, qwheelevent):
+        if qwheelevent.modifiers() == Qt.ControlModifier:
+            self.changeFontsize(-1, -1)
+            pass

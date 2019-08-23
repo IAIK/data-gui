@@ -1338,6 +1338,8 @@ class MainWindow(QMainWindow):
         """Decrease font size for each asm/src editor tab by 1 pt."""
 
         debug(5, "Decrease font size")
+        if self.editor_font_size <= 1:
+            return
         self.editor_font_size -= 1
         for i in range(self.asm_tab.count() - 1):
             self.asm_tab.changeFontsize(i, self.editor_font_size)
