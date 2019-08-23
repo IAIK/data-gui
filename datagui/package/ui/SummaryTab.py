@@ -25,17 +25,17 @@ from datastub.leaks import Leak, NSLeak, NSPType, SPLeak
 from datagui.package.utils import getCircle, getColor, createIconButton, LeakMetaInfo, LeakFlags, debug
 
 btn_to_flag = {
-    0: LeakFlags.OKAY,
-    1: LeakFlags.WARNING,
-    2: LeakFlags.CANCEL,
-    3: LeakFlags.GARBAGE
+    0: LeakFlags.NOLEAK,
+    1: LeakFlags.INVESTIGATE,
+    2: LeakFlags.LEAK,
+    3: LeakFlags.DONTCARE
 }
 
 flag_to_btn = {
-    LeakFlags.OKAY: 0,
-    LeakFlags.WARNING: 1,
-    LeakFlags.CANCEL: 2,
-    LeakFlags.GARBAGE: 3
+    LeakFlags.NOLEAK: 0,
+    LeakFlags.INVESTIGATE: 1,
+    LeakFlags.LEAK: 2,
+    LeakFlags.DONTCARE: 3
 }
 
 import pdb
@@ -65,10 +65,10 @@ class SummaryTab(QWidget):
         # # # # #
         flags_group_box = QGroupBox("Rating")
         icon_size = QSize(20, 20)
-        flag_0 = createIconButton(icon_size, LeakFlags.OKAY)
-        flag_1 = createIconButton(icon_size, LeakFlags.WARNING)
-        flag_2 = createIconButton(icon_size, LeakFlags.CANCEL)
-        flag_3 = createIconButton(icon_size, LeakFlags.GARBAGE)
+        flag_0 = createIconButton(icon_size, LeakFlags.NOLEAK)
+        flag_1 = createIconButton(icon_size, LeakFlags.INVESTIGATE)
+        flag_2 = createIconButton(icon_size, LeakFlags.LEAK)
+        flag_3 = createIconButton(icon_size, LeakFlags.DONTCARE)
 
         flag_0.setCheckable(True)
         flag_1.setCheckable(True)

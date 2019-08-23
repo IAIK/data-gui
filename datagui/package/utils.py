@@ -27,6 +27,7 @@ from PyQt5.QtWidgets import QPushButton, QWidget, QStyle
 from datastub.DataFS import DataFS
 from datastub.SymbolInfo import SymbolInfo
 from datastub.export import MyUnpickler
+from datastub.leaks import DataLeak, CFLeak, Leak
 
 datafs = None
 
@@ -192,6 +193,23 @@ def getLocalIp(ip):
                 return ip - sym.img.lower
     return ip
 
+def leakToStr(leak):
+    if isinstance(leak, DataLeak):
+        leak_type = "DataLeak"
+    elif isinstance(leak, CFLeak):
+        leak_type = "CFLeak"
+    else:
+        leak_type = "UnknownLeak"
+    leak_detail_short = ""
+    is_leak = leak.status.is_generic_leak() or leak.status.is_specific_leak()
+    if is_leak:
+        normalized = leak.status.max_leak_normalized()
+        if normalized >= 0.005:
+            leak_detail_short = " (%0.1f%%)" % (normalized * 100)
+    return "{}: {}{}".format(
+        leak_type,
+        hex(getLocalIp(leak.ip)),
+        leak_detail_short)
 
 def getCtxName(ip):
     """Find context name of ip.
@@ -218,17 +236,17 @@ def getCtxName(ip):
 
 class LeakFlags:
     MISSING = -1
-    GARBAGE = 0
-    OKAY = 1
-    WARNING = 2
-    CANCEL = 3
+    DONTCARE = 0
+    NOLEAK = 1
+    INVESTIGATE = 2
+    LEAK = 3
     RIGHT_ARROW = 4
     LEFT_ARROW = 5
 
 
 class LeakMetaInfo:
     def __init__(self):
-        self.flag = LeakFlags.WARNING
+        self.flag = LeakFlags.INVESTIGATE
         self.comment = ""
 
     def __str__(self):
@@ -249,13 +267,13 @@ def getIconById(flag_id):
         A QIcon if the given flag_id is valid, None otherwise.
     """
 
-    if flag_id == LeakFlags.OKAY:
+    if flag_id == LeakFlags.NOLEAK:
         return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_DialogApplyButton")))
-    elif flag_id == LeakFlags.WARNING:
+    elif flag_id == LeakFlags.INVESTIGATE:
         return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_MessageBoxWarning")))
-    elif flag_id == LeakFlags.CANCEL:
+    elif flag_id == LeakFlags.LEAK:
         return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_DialogCancelButton")))
-    elif flag_id == LeakFlags.GARBAGE:
+    elif flag_id == LeakFlags.DONTCARE:
         return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_TrashIcon")))
     elif flag_id == LeakFlags.RIGHT_ARROW:
         return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_ArrowRight")))
@@ -267,6 +285,30 @@ def getIconById(flag_id):
         debug(1, "[getIconById] UNKNOWN flag id: %d", flag_id)
         return None
 
+def getIconTooltipById(flag_id):
+    """Return a tooltip for a given flag id.
+
+    Returns:
+        A QIcon if the given flag_id is valid, None otherwise.
+    """
+
+    if flag_id == LeakFlags.NOLEAK:
+        return "No leak"
+    elif flag_id == LeakFlags.INVESTIGATE:
+        return "Investigate"
+    elif flag_id == LeakFlags.LEAK:
+        return "Leak"
+    elif flag_id == LeakFlags.DONTCARE:
+        return "Do not care"
+    elif flag_id == LeakFlags.RIGHT_ARROW:
+        return "Go to next leak"
+    elif flag_id == LeakFlags.LEFT_ARROW:
+        return "Go to previous leak"
+    elif flag_id == LeakFlags.MISSING:
+        return None
+    else:
+        debug(1, "[getIconTooltipById] UNKNOWN flag id: %d", flag_id)
+        return None
 
 class ColorScheme:
     CALL = "CALL"
@@ -309,6 +351,7 @@ def createIconButton(size, icon_id):
     btn = QPushButton()
     btn.setIcon(getIconById(icon_id))
     btn.setIconSize(size)
+    btn.setToolTip(getIconTooltipById(icon_id))
     btn.setFixedSize(QSize(size.width() + 5, size.height() + 5))
 
     return btn

@@ -38,13 +38,9 @@ class BaseTreeItem(QStandardItem):
     def childCount(self):
         return len(self.child_items)
 
-    #def data(self, role, column=0):
     def data(self, role):
-        if role == Qt.DisplayRole:
-            #try:
+        if role == Qt.DisplayRole or role == Qt.ToolTipRole:
             return self.name
-            #except IndexError:
-            #    return None
         elif role == CustomRole.Obj:
             return self.obj
         elif role == CustomRole.Ip:

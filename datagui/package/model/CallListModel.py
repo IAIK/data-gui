@@ -41,7 +41,7 @@ class CallListModel(BaseTreeModel):
             return
 
         (item, leak) = item_leak_tuples[0]
-        name = item.name
+        name = utils.leakToStr(selected_leak)
         self.name = name
         self.root_item = CallHierarchyItem(name)
         self.selected_leak = selected_leak
@@ -66,8 +66,11 @@ class CallListModel(BaseTreeModel):
     # OVERLOADED FUNCTIONS  #
     # # # # # # # # # # # # #
     def headerData(self, section, orientation, role):
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self.name
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
+                return self.name
+        elif role == Qt.ToolTipRole:
+            return "This leak occurs in different call contexts. Select one below."
         return None
 
     def data(self, index, role):
@@ -79,7 +82,7 @@ class CallListModel(BaseTreeModel):
         else:
             item = self.items[index.row()]
 
-        if role == Qt.DisplayRole:
+        if role == Qt.DisplayRole or role == Qt.ToolTipRole:
             return item.description
         elif role == CustomRole.Obj:
             if len(self.items) == 0:
@@ -102,8 +105,6 @@ class CallListModel(BaseTreeModel):
             if index.column() == 0:
                 return utils.getIconById(item.flag_id)
             return QVariant()
-        elif role == Qt.ToolTipRole:
-            return item.description
         else:
             return QVariant()
 

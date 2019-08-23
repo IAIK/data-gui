@@ -57,7 +57,7 @@ class libHierarchyModel(BaseTreeModel):
         if not index.isValid():
             return QVariant()
 
-        if role == Qt.DisplayRole:
+        if role == Qt.DisplayRole or role == Qt.ToolTipRole:
             item = index.internalPointer()
             return item.data(Qt.DisplayRole)
         elif role == CustomRole.Obj:
@@ -98,3 +98,15 @@ class libHierarchyModel(BaseTreeModel):
             parent_item = parent.internalPointer()
 
         return len(parent_item.child_items)
+
+
+    def columnCount(self, parent):
+        return 1
+
+    def headerData(self, section, orientation, role):
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
+                return ["Library Hierarchy"][section]
+        elif role == Qt.ToolTipRole:
+            return ["Leaks sorted and collected per library and function"][section]
+        return None

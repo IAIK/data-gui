@@ -53,10 +53,10 @@ class AsmTabView(QTabWidget):
         editor.setMarginsForegroundColor(QColor("#ff888888"))
         # DEFINE MARKERS
         # --------------
-        icon_ok = getIconById(LeakFlags.OKAY)
-        icon_warning = getIconById(LeakFlags.WARNING)
-        icon_cancel = getIconById(LeakFlags.CANCEL)
-        icon_default = getIconById(LeakFlags.GARBAGE)
+        icon_ok = getIconById(LeakFlags.NOLEAK)
+        icon_warning = getIconById(LeakFlags.INVESTIGATE)
+        icon_cancel = getIconById(LeakFlags.LEAK)
+        icon_default = getIconById(LeakFlags.DONTCARE)
         icon_arrow_right = getIconById(LeakFlags.RIGHT_ARROW)
         #
         sym_0 = icon_ok.pixmap(QSize(16, 16))
@@ -65,10 +65,10 @@ class AsmTabView(QTabWidget):
         sym_3 = icon_default.pixmap(QSize(16, 16))
         sym_4 = icon_arrow_right.pixmap(QSize(16, 16))
         #
-        editor.markerDefine(sym_0, LeakFlags.OKAY)
-        editor.markerDefine(sym_1, LeakFlags.WARNING)
-        editor.markerDefine(sym_2, LeakFlags.CANCEL)
-        editor.markerDefine(sym_3, LeakFlags.GARBAGE)
+        editor.markerDefine(sym_0, LeakFlags.NOLEAK)
+        editor.markerDefine(sym_1, LeakFlags.INVESTIGATE)
+        editor.markerDefine(sym_2, LeakFlags.LEAK)
+        editor.markerDefine(sym_3, LeakFlags.DONTCARE)
         editor.markerDefine(sym_4, LeakFlags.RIGHT_ARROW)
         editor.setMarginMarkerMask(1, 0b11111)
 

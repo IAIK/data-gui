@@ -64,9 +64,7 @@ class CallHierarchyModel(BaseTreeModel):
     def data(self, index, role):
         if not index.isValid():
             return QVariant()
-        if role == Qt.ToolTipRole:
-            return 'ToolTip'
-        if role == Qt.DisplayRole:
+        if role == Qt.DisplayRole or role == Qt.ToolTipRole:
             item = index.internalPointer()
             call_hierarchy = item.data(CustomRole.Obj)
             if index.column() == 0:

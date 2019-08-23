@@ -43,7 +43,8 @@ class LeakItem(QStandardItem):
 class LeakModel(BaseTreeModel):
     def __init__(self):
         super(LeakModel, self).__init__()
-        self.none_item = LeakItem("No leaks detected", None)
+        self.header = "Leaks"
+        self.none_item = LeakItem("No leaks to display", None)
         self.items = []
 
     # # # # # # # # # # # # #
@@ -60,7 +61,7 @@ class LeakModel(BaseTreeModel):
         else:
             item = self.items[index.row()]
 
-        if role == Qt.DisplayRole:
+        if role == Qt.DisplayRole or role == Qt.ToolTipRole:
             return item.name
         elif role == CustomRole.Leak:
             if item.leak is not None:

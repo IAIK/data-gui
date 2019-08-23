@@ -43,7 +43,7 @@ from datagui.package.ui.AsmTabView import AsmTabView
 from datagui.package.ui.SourceTabView import SourceTabView
 from datagui.package.ui.SummaryTab import SummaryTab
 from datagui.package.utils import ErrorCode, CustomRole, IpInfo, info_map, LeakMetaInfo, ColorScheme, LeakFlags, debug, \
-    getCtxName, default_font_size, createIconButton, register_assert_handler, loadipinfo
+    getCtxName, default_font_size, createIconButton, register_assert_handler, loadipinfo, leakToStr
 
 mainWindow = None
 
@@ -132,16 +132,16 @@ class MainWindow(QMainWindow):
         self.main_toolbar = self.addToolBar('main')
         self.btn_back = utils.createIconButton(QSize(20, 20), LeakFlags.LEFT_ARROW)
         self.btn_forward = utils.createIconButton(QSize(20, 20), LeakFlags.RIGHT_ARROW)
-        self.btn_filter_0 = utils.createIconButton(QSize(20, 20), LeakFlags.OKAY)
-        self.btn_filter_1 = utils.createIconButton(QSize(20, 20), LeakFlags.WARNING)
-        self.btn_filter_2 = utils.createIconButton(QSize(20, 20), LeakFlags.CANCEL)
-        self.btn_filter_3 = utils.createIconButton(QSize(20, 20), LeakFlags.GARBAGE)
+        self.btn_filter_0 = utils.createIconButton(QSize(20, 20), LeakFlags.NOLEAK)
+        self.btn_filter_1 = utils.createIconButton(QSize(20, 20), LeakFlags.INVESTIGATE)
+        self.btn_filter_2 = utils.createIconButton(QSize(20, 20), LeakFlags.LEAK)
+        self.btn_filter_3 = utils.createIconButton(QSize(20, 20), LeakFlags.DONTCARE)
 
         icon_size = QSize(20, 20)
-        self.btn_filter_0 = createIconButton(icon_size, LeakFlags.OKAY)
-        self.btn_filter_1 = createIconButton(icon_size, LeakFlags.WARNING)
-        self.btn_filter_2 = createIconButton(icon_size, LeakFlags.CANCEL)
-        self.btn_filter_3 = createIconButton(icon_size, LeakFlags.GARBAGE)
+        self.btn_filter_0 = createIconButton(icon_size, LeakFlags.NOLEAK)
+        self.btn_filter_1 = createIconButton(icon_size, LeakFlags.INVESTIGATE)
+        self.btn_filter_2 = createIconButton(icon_size, LeakFlags.LEAK)
+        self.btn_filter_3 = createIconButton(icon_size, LeakFlags.DONTCARE)
 
         self.btn_filter_0.setCheckable(True)
         self.btn_filter_1.setCheckable(True)
@@ -430,7 +430,7 @@ class MainWindow(QMainWindow):
                         search_str = format(utils.getLocalIp(addr), 'x') + ":"
                         if asm_tab_index != -1:
                             asm_marker_handle = self.asm_tab.widget(asm_tab_index).markerAdd(short_info.asm_line_nr,
-                                                                                             utils.LeakFlags.WARNING)
+                                                                                             utils.LeakFlags.INVESTIGATE)
                             asm_line_text = self.asm_tab.widget(asm_tab_index).text(short_info.asm_line_nr)
                             self.setAsmIndicator(addr, asm_tab_index, short_info.asm_line_nr,
                                                  asm_line_text.find(search_str), len(search_str) - 1)
@@ -446,7 +446,7 @@ class MainWindow(QMainWindow):
 
                             if src_tab_index != -1:
                                 src_marker_handle = self.src_tab.widget(src_tab_index).markerAdd(src_line_nr,
-                                                                                                 utils.LeakFlags.WARNING)
+                                                                                                 utils.LeakFlags.INVESTIGATE)
                                 src_line_text = self.src_tab.widget(src_tab_index).text(src_line_nr)
                                 start_pos = len(src_line_text) - len(src_line_text.lstrip())
                                 self.setSrcIndicator(addr, src_tab_index, src_line_nr, start_pos, 0)
@@ -499,13 +499,13 @@ class MainWindow(QMainWindow):
     def isFilterActive(self, leak_meta):
         assert isinstance(leak_meta, LeakMetaInfo)
         leak_flags = leak_meta.flag
-        if leak_flags == LeakFlags.OKAY:
+        if leak_flags == LeakFlags.NOLEAK:
             return self.btn_filter_0.isChecked()
-        elif leak_flags == LeakFlags.WARNING:
+        elif leak_flags == LeakFlags.INVESTIGATE:
             return self.btn_filter_1.isChecked()
-        elif leak_flags == LeakFlags.CANCEL:
+        elif leak_flags == LeakFlags.LEAK:
             return self.btn_filter_2.isChecked()
-        elif leak_flags == LeakFlags.GARBAGE:
+        elif leak_flags == LeakFlags.DONTCARE:
             return self.btn_filter_3.isChecked()
         else:
             debug(0, "Invalid leak flag %s", (str(leak_flags)))
@@ -805,8 +805,10 @@ class MainWindow(QMainWindow):
 
         if self.coming_from_call_view:
             self.leak_model.header = "Call Hierarchy Leaks"
+            self.leak_model.headertooltip = "List all leaks of the selected call hierarchy element"
         else:
             self.leak_model.header = "Library Hierarchy Leaks"
+            self.leak_model.headertooltip = "List all leaks of the selected library element"
 
         self.leak_model.clearList()
         for k in sorted_keys(obj.dataleaks):
@@ -818,31 +820,13 @@ class MainWindow(QMainWindow):
 
     def addLeakItem(self, obj, leak):
         """Add single leak item to leak model."""
-        if isinstance(leak, DataLeak):
-            leak_type = "DataLeak"
-        elif isinstance(leak, CFLeak):
-            leak_type = "CFLeak"
-        else:
-            leak_type = "UNKNOWN_LEAK_TYPE"
-            debug(1, "[addLeakItem]: UNKNOWN leak type")
-
         meta = leak.meta
         if meta is not None:
             if not self.isFilterActive(meta):
                 debug(3, "Filtering data leak %x", (leak.ip))
                 return
 
-        leak_detail_short = ""
-        is_leak = leak.status.is_generic_leak() or leak.status.is_specific_leak()
-        if is_leak:
-            normalized = leak.status.max_leak_normalized()
-            if normalized >= 0.005:
-                leak_detail_short = " (%0.1f%%)" % (normalized * 100)
-
-        leak_item = LeakItem("{}: {}{}".format(
-            leak_type, hex(utils.getLocalIp(leak.ip)),
-            leak_detail_short
-        ), leak)
+        leak_item = LeakItem(utils.leakToStr(leak), leak)
         leak_item.high_prio_flag = self.getMaxPriority(obj, leak)
         ip_info = info_map[leak.ip]
         self.updateMarginSymbol(ip_info, leak_item.high_prio_flag)

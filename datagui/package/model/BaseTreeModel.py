@@ -24,6 +24,7 @@ class BaseTreeModel(QAbstractItemModel):
     def __init__(self):
         self.root_item = None
         self.header = None
+        self.headertooltip = None
         super(BaseTreeModel, self).__init__()
 
     # # # # # # # # # # # # #
@@ -40,10 +41,18 @@ class BaseTreeModel(QAbstractItemModel):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
     def headerData(self, section, orientation, role):
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            if self.header:
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
+                if self.header:
+                    return self.header
+                if self.root_item:
+                    return self.root_item.name
+        elif role == Qt.ToolTipRole:
+            if self.headertooltip:
+                return self.headertooltip
+            elif self.header:
                 return self.header
-            if self.root_item:
+            elif self.root_item:
                 return self.root_item.name
         return None
 
