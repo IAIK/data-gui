@@ -30,9 +30,13 @@ class ZoomTabView(QTabWidget):
     def __init__(self):
         super(ZoomTabView, self).__init__()
         self.zoomlevel = 0
+        self.zoomlevel_min = -10
 
     def scaleAllTabs(self, increment = 0):
         self.zoomlevel = int(self.zoomlevel + increment)
+        if self.zoomlevel < self.zoomlevel_min:
+            self.zoomlevel = self.zoomlevel_min
+
         for i in range(self.count() - 1):
             editor = self.widget(i)
             editor.SendScintilla(QsciScintilla.SCI_SETZOOM, self.zoomlevel)
