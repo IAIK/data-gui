@@ -1,3 +1,4 @@
 include README.md
 include LICENSE
 include datagui/resources/icons/*.png
+include datagui/resources/*

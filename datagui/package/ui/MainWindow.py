@@ -23,7 +23,7 @@ import datetime
 
 from PyQt5.Qsci import QsciScintilla
 from PyQt5.QtCore import Qt, QVariant, QModelIndex, QItemSelectionModel, QSize
-from PyQt5.QtGui import QBrush, QColor, QIcon, QPalette, QFont, QFontMetrics
+from PyQt5.QtGui import QBrush, QColor, QIcon, QPalette, QFont
 from PyQt5.QtWidgets import QMainWindow, QFrame, QSplitter, QHBoxLayout, QAction, QApplication, QTabWidget, \
     QTreeView, QMenu, QStackedWidget, QFileDialog, QStyle, QMessageBox, QHeaderView
 from datastub.export import *
@@ -43,7 +43,7 @@ from datagui.package.ui.AsmTabView import AsmTabView
 from datagui.package.ui.SourceTabView import SourceTabView
 from datagui.package.ui.SummaryTab import SummaryTab
 from datagui.package.utils import ErrorCode, CustomRole, IpInfo, info_map, LeakMetaInfo, ColorScheme, LeakFlags, debug, \
-    getCtxName, default_font_size, createIconButton, register_assert_handler, loadipinfo, leakToStr, getResourcePath
+    getCtxName, default_font_size, createIconButton, register_assert_handler, loadipinfo, leakToStr, getLogoIcon, getLogoIconPixmap, getResourceFile, registerFonts, getDefaultIconSize
 
 mainWindow = None
 
@@ -71,6 +71,7 @@ class MainWindow(QMainWindow):
         mainWindow = self
 
         register_assert_handler(assert_handler)
+        registerFonts()
 
         if len(sys.argv) == 3:
             self.pickle_path = sys.argv[1]
@@ -107,7 +108,6 @@ class MainWindow(QMainWindow):
         self.main_view = QFrame(self)
         self.asm_tab = AsmTabView()
         self.src_tab = SourceTabView()
-        self.editor_font_size = default_font_size
         self.call_model = CallHierarchyModel()
         self.call_view = QTreeView()
         self.leak_model = LeakModel()
@@ -132,8 +132,7 @@ class MainWindow(QMainWindow):
         self.main_toolbar = self.addToolBar('main')
         # # # # #
         # Filter Buttons
-        icon_size = QFontMetrics(QFont()).size(0,"A").height()
-        icon_size = QSize(icon_size, icon_size)
+        icon_size = getDefaultIconSize()
         self.btn_back = createIconButton(icon_size, LeakFlags.LEFT_ARROW)
         self.btn_forward = createIconButton(icon_size, LeakFlags.RIGHT_ARROW)
         self.btn_filter_0 = createIconButton(icon_size, LeakFlags.NOLEAK)
@@ -219,14 +218,10 @@ class MainWindow(QMainWindow):
                                    'Save pickle &As ...', self)
         save_as_file_act.setStatusTip('Save current file as ...')
         save_as_file_act.triggered.connect(self.saveCallHierarchy)
-        #
-        font_inc_act = QAction('&Increase size', self)
-        font_inc_act.triggered.connect(self.increaseFontSize)
-        font_inc_act.setShortcut('Ctrl++')
-        #
-        font_dec_act = QAction('&Decrease size', self)
-        font_dec_act.triggered.connect(self.decreaseFontSize)
-        font_dec_act.setShortcut('Ctrl+-')
+
+        about_act = QAction('&About', self)
+        about_act.triggered.connect(self.showAbout)
+
         # # # # # #
         # MENUBAR #
         # # # # # #
@@ -245,10 +240,11 @@ class MainWindow(QMainWindow):
         self.view_menu.addAction(toggle_asm_act)
         self.view_menu.addAction(toggle_source_act)
 
-        # Uncomment to activate Editor font manipulations
-        editor_menu = menu_bar.addMenu('&Editor')
-        editor_menu.addAction(font_inc_act)
-        editor_menu.addAction(font_dec_act)
+        #~ editor_menu = menu_bar.addMenu('&Editor')
+
+        help_menu = menu_bar.addMenu('&Help')
+        help_menu.addAction(about_act)
+
         # # # # # #
         # TOOLBAR #
         # # # # # #
@@ -340,6 +336,7 @@ class MainWindow(QMainWindow):
         self.call_view.clicked.connect(self.callClicked)
         self.call_view.customContextMenuRequested.connect(self.showCallViewContextMenu)
         self.lib_view.clicked.connect(self.libClicked)
+        self.lib_view.customContextMenuRequested.connect(self.showLibViewContextMenu)
         self.leak_view.clicked.connect(self.leakClicked)
         self.btn_forward.clicked.connect(self.nextLeak)
         self.btn_back.clicked.connect(self.previousLeak)
@@ -540,9 +537,7 @@ class MainWindow(QMainWindow):
 
     def setupWindowInfo(self):
         self.setWindowTitle('DATA - Differential Address Trace Analysis ' + DATAGUI_VERSION)
-        window_icon = QIcon(getResourcePath('icons', 'icons8-piping-100.png'))
-        window_icon.actualSize(QSize(50, 50))
-        self.setWindowIcon(window_icon)
+        self.setWindowIcon(getLogoIcon())
         self.setGeometry(100, 100, 1600, 700)
         self.show()
         # self.showMaximized()
@@ -680,7 +675,32 @@ class MainWindow(QMainWindow):
         collapse_act.triggered.connect(self.call_view.collapseAll)
         menu.addAction(collapse_act)
 
+        menu.addSeparator()
+
+        mark_act = QAction("Mark all")
+        mark_act.triggered.connect(self.markAll)
+        menu.addAction(mark_act)
+
         menu.exec(self.call_view.viewport().mapToGlobal(pos))
+
+    def showLibViewContextMenu(self, pos):
+        menu = QMenu("CallView Context Menu")
+
+        expand_act = QAction("Expand all")
+        expand_act.triggered.connect(self.lib_view.expandAll)
+        menu.addAction(expand_act)
+
+        collapse_act = QAction("Collapse all")
+        collapse_act.triggered.connect(self.lib_view.collapseAll)
+        menu.addAction(collapse_act)
+
+        menu.addSeparator()
+
+        mark_act = QAction("Mark all")
+        mark_act.triggered.connect(self.markAll)
+        menu.addAction(mark_act)
+
+        menu.exec(self.lib_view.viewport().mapToGlobal(pos))
 
     def asmIndicatorClicked(self, line_nr, line_index, pressed_key):
         map_key = utils.createKey(self.asm_tab.currentIndex(), line_nr)
@@ -1089,6 +1109,44 @@ class MainWindow(QMainWindow):
             debug(1, "[goToCallee] Callee ip not in info_map")
             self.src_tab.setCurrentIndex(self.src_empty_tab_index)
 
+    def markAll(self):
+        if self.coming_from_call_view:
+            call_index = self.call_view.selectionModel().currentIndex()
+            item = self.call_model.data(call_index, CustomRole.CallItem)
+        else:
+            lib_index = self.lib_view.selectionModel().currentIndex()
+            item = self.lib_model.data(lib_index, CustomRole.LibItem)
+        self.markAllRecursive(LeakFlags.DONTCARE, "Ignored", item)
+
+    def markAllRecursive(self, flag_id, user_comment, item):
+        """ Modify all leaks recursively.
+
+        Args:
+            flag_id: The flag to apply to all leaks. Can be None to leave unchanged
+            user_comment: The comments to apply to all leaks. Can be None to leave unchanged
+        """
+        if isinstance(item, CallHierarchyItem):
+            for k in sorted_keys(item.obj.dataleaks):
+                dl = item.obj.dataleaks[k]
+                assert isinstance(dl.meta, LeakMetaInfo)
+                self.markLeak(dl, flag_id, user_comment)
+            for k in sorted_keys(item.obj.cfleaks):
+                cf = item.obj.cfleaks[k]
+                assert isinstance(cf.meta, LeakMetaInfo)
+                self.markLeak(cf, flag_id, user_comment)
+            for child_item in item.child_items:  # type: CallHierarchyItem
+                res = self.markAllRecursive(flag_id, user_comment, child_item)
+        elif isinstance(item, LibHierarchyItem):
+            pass
+        else:
+            debug(0, "[markAllRecursive] Invalid item type: %s" % type(item))
+
+    def markLeak(self, leak, flag_id, user_comment):
+        if flag_id is not None:
+            leak.meta.flag = flag_id
+        if user_comment is not None:
+            leak.meta.comment = user_comment
+
     def handleLeakSelection(self, leak):
         """Display views correctly after leak selection.
 
@@ -1270,6 +1328,16 @@ class MainWindow(QMainWindow):
         elif retval & QMessageBox.Ignore > 0:
             pass
 
+    def showAbout(self):
+        msg = QMessageBox()
+        msg.setWindowTitle("About DATA GUI")
+        msg.setIconPixmap(getLogoIconPixmap())
+        msg.setText("DATA GUI version %s" % DATAGUI_VERSION)
+        f = getResourceFile('About.html')
+        msg.setInformativeText(f.read())
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
+
     def getPickleFileFromDialog(self):
         """Show file dialog to open pickle file and return the pickle content."""
 
@@ -1325,28 +1393,6 @@ class MainWindow(QMainWindow):
     def showSaveDialog(self, window_title, file_format="All Files (*)", current_dir="."):
         file_info = QFileDialog.getSaveFileName(self, window_title, current_dir, file_format)
         return file_info
-
-    def increaseFontSize(self):
-        """Increase font size for each asm/src editor tab by 1 pt."""
-
-        debug(5, "Increase font size")
-        self.editor_font_size += 1
-        for i in range(self.asm_tab.count() - 1):
-            self.asm_tab.changeFontsize(i, self.editor_font_size)
-        for i in range(self.src_tab.count() - 1):
-            self.src_tab.changeFontsize(i, self.editor_font_size)
-
-    def decreaseFontSize(self):
-        """Decrease font size for each asm/src editor tab by 1 pt."""
-
-        debug(5, "Decrease font size")
-        if self.editor_font_size <= 1:
-            return
-        self.editor_font_size -= 1
-        for i in range(self.asm_tab.count() - 1):
-            self.asm_tab.changeFontsize(i, self.editor_font_size)
-        for i in range(self.src_tab.count() - 1):
-            self.src_tab.changeFontsize(i, self.editor_font_size)
 
     def updatePrevNextButtons(self):
         """Sets the enabled property of the backward and forward buttons."""

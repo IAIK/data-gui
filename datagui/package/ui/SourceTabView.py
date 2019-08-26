@@ -101,20 +101,12 @@ class SourceTabView(QTabWidget):
         debug(5, "[SRC] marginLeftClick\n\tmargin_nr: %d, line_nr: %d, state: %d", (margin_nr, line_nr, state))
 
     def setMargin(self, editor, height):
-        size = QSize(height,height)
-        #
-        icon_ok = getIconById(LeakFlags.NOLEAK)
-        icon_warning = getIconById(LeakFlags.INVESTIGATE)
-        icon_cancel = getIconById(LeakFlags.LEAK)
-        icon_default = getIconById(LeakFlags.DONTCARE)
-        icon_arrow_right = getIconById(LeakFlags.RIGHT_ARROW)
-        #
-        sym_0 = icon_ok.pixmap(size)
-        sym_1 = icon_warning.pixmap(size)
-        sym_2 = icon_cancel.pixmap(size)
-        sym_3 = icon_default.pixmap(size)
-        sym_4 = icon_arrow_right.pixmap(size)
-        #
+        sym_0 = getIconById(LeakFlags.NOLEAK, height)
+        sym_1 = getIconById(LeakFlags.INVESTIGATE, height)
+        sym_2 = getIconById(LeakFlags.LEAK, height)
+        sym_3 = getIconById(LeakFlags.DONTCARE, height)
+        sym_4 = getIconById(LeakFlags.RIGHT_ARROW, height)
+
         editor.markerDefine(sym_0, LeakFlags.NOLEAK)
         editor.markerDefine(sym_1, LeakFlags.INVESTIGATE)
         editor.markerDefine(sym_2, LeakFlags.LEAK)
@@ -126,23 +118,16 @@ class SourceTabView(QTabWidget):
         editor.setMarginWidth(0, "00000")
         editor.setMarginWidth(1, "000")
 
-    def changeFontsize(self, lexer_index, font_size):
+    def scale(self, lexer_index):
         if lexer_index == -1:
             for i in range(len(self.lexer_list) - 1):
-                self.changeFontsize(i, font_size)
+                self.scale(i)
             return
-
         lexer = self.lexer_list[lexer_index]
-        if font_size >= 0:
-            new_font = QFont("monospace", font_size, QFont.Normal)
-            lexer.setFont(new_font)
         editor = lexer.editor()
-        #icon_size = QFontMetrics(lexer.font(0)).size(0,"A").height()
         icon_size = editor.textHeight(0)
-        #icon_size = min(icon_size, editor.marginWidth(1))
         self.setMargin(editor, icon_size)
 
     def wheelEvent(self, qwheelevent):
         if qwheelevent.modifiers() == Qt.ControlModifier:
-            self.changeFontsize(-1, -1)
-            pass
+            self.scale(-1)

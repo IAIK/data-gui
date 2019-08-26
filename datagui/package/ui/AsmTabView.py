@@ -89,35 +89,22 @@ class AsmTabView(QTabWidget):
     def marginLeftClick(self, margin_nr, line_nr, state):
         debug(5, "[ASM] marginLeftClick\n\tmargin_nr: %d, line_nr: %d, state: %d", (margin_nr, line_nr, state))
 
-    def changeFontsize(self, tab_index, font_size):
+    def scale(self, tab_index):
         if tab_index == -1:
             for i in range(self.count() - 1):
-                self.changeFontsize(i, font_size)
+                self.scale(i)
             return
-
         editor = self.widget(tab_index)
-        if font_size >= 0:
-            new_font = QFont("monospace", font_size, QFont.Normal)
-            editor.setFont(new_font)
-
         icon_size = editor.textHeight(0)
         self.setMargin(editor, icon_size)
 
     def setMargin(self, editor, height):
-        size = QSize(height,height)
-        #
-        icon_ok = getIconById(LeakFlags.NOLEAK)
-        icon_warning = getIconById(LeakFlags.INVESTIGATE)
-        icon_cancel = getIconById(LeakFlags.LEAK)
-        icon_default = getIconById(LeakFlags.DONTCARE)
-        icon_arrow_right = getIconById(LeakFlags.RIGHT_ARROW)
-        #
-        sym_0 = icon_ok.pixmap(size)
-        sym_1 = icon_warning.pixmap(size)
-        sym_2 = icon_cancel.pixmap(size)
-        sym_3 = icon_default.pixmap(size)
-        sym_4 = icon_arrow_right.pixmap(size)
-        #
+        sym_0 = getIconById(LeakFlags.NOLEAK, height)
+        sym_1 = getIconById(LeakFlags.INVESTIGATE, height)
+        sym_2 = getIconById(LeakFlags.LEAK, height)
+        sym_3 = getIconById(LeakFlags.DONTCARE, height)
+        sym_4 = getIconById(LeakFlags.RIGHT_ARROW, height)
+
         editor.markerDefine(sym_0, LeakFlags.NOLEAK)
         editor.markerDefine(sym_1, LeakFlags.INVESTIGATE)
         editor.markerDefine(sym_2, LeakFlags.LEAK)
@@ -129,6 +116,7 @@ class AsmTabView(QTabWidget):
         editor.setMarginWidth(1, "000")
 
     def wheelEvent(self, qwheelevent):
+        # Scales zoom level
+        # fontsize remains constant
         if qwheelevent.modifiers() == Qt.ControlModifier:
-            self.changeFontsize(-1, -1)
-            pass
+            self.scale(-1)

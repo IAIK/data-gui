@@ -23,9 +23,9 @@ import os
 import traceback
 import datetime
 from pkg_resources import resource_filename
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QStandardItem, QPixmap, QColor, QPainter, QBrush, QIcon
-from PyQt5.QtWidgets import QPushButton, QWidget, QStyle
+from PyQt5.QtCore import Qt, QSize, QRect
+from PyQt5.QtGui import QStandardItem, QPixmap, QColor, QPainter, QBrush, QIcon, QFontDatabase, QFont, QFontMetrics
+from PyQt5.QtWidgets import QPushButton, QWidget, QStyle, QLabel
 from datastub.DataFS import DataFS
 from datastub.SymbolInfo import SymbolInfo
 from datastub.export import MyUnpickler
@@ -264,58 +264,62 @@ def getResourcePath(*args):
     path = os.path.join(os.path.sep, '..', 'resources', *args)
     return resource_filename(__package__, path)
 
-def getIconById_qt(flag_id):
-    """Create a QIcon for a given flag id.
+def getIconUnicodeById(flag_id):
+    icons = {
+        LeakFlags.NOLEAK:      u'\uf058', # check-circle
+        LeakFlags.INVESTIGATE: u'\uf059', # question-circle
+        LeakFlags.LEAK:        u'\uf043', # tint
+        LeakFlags.DONTCARE:    u'\uf1f8', # trash
+        LeakFlags.RIGHT_ARROW: u'\uf105', # angle-right
+        LeakFlags.LEFT_ARROW:  u'\uf104', # angle-left
+        LeakFlags.MISSING:     u'\uf129', # info
+    }
+    if flag_id not in icons:
+        flag_id = LeakFlags.MISSING
+    return icons[flag_id]
 
-    Returns:
-        A QIcon if the given flag_id is valid, None otherwise.
-    """
+def getIconColorById(flag_id):
+    colors = {
+        LeakFlags.NOLEAK:      0x2ecc71,
+        LeakFlags.INVESTIGATE: 0xf1c40f, 
+        LeakFlags.LEAK:        0xe74c3c,
+        LeakFlags.DONTCARE:    0x666666,
+        LeakFlags.RIGHT_ARROW: 0x333333,
+        LeakFlags.LEFT_ARROW:  0x333333,
+        LeakFlags.MISSING:     0x3498db,
+    }
+    if flag_id not in colors:
+        flag_id = LeakFlags.MISSING
+    return colors[flag_id]
 
-    if flag_id == LeakFlags.NOLEAK:
-        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_DialogApplyButton")))
-    elif flag_id == LeakFlags.INVESTIGATE:
-        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_MessageBoxWarning")))
-    elif flag_id == LeakFlags.LEAK:
-        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_DialogCancelButton")))
-    elif flag_id == LeakFlags.DONTCARE:
-        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_TrashIcon")))
-    elif flag_id == LeakFlags.RIGHT_ARROW:
-        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_ArrowRight")))
-    elif flag_id == LeakFlags.LEFT_ARROW:
-        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_ArrowLeft")))
-    elif flag_id == LeakFlags.MISSING:
-        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_MessageBoxQuestion")))
-    else:
-        debug(1, "[getIconById] UNKNOWN flag id: %d", flag_id)
-        return None
+def getIconById(flag_id, height = None):
+    if not height:
+        height = getDefaultIconSize().height()
+    unscaled_size = getDefaultIconSize()
+    pix = QPixmap(QSize(height, height))
+    pix.fill(QColor("transparent"))
+    painter = QPainter(pix)
+    painter.setFont(QFont("Font Awesome 5 Free Solid", default_font_size))
+    painter.setPen(QColor.fromRgb(getIconColorById(flag_id)))
+    scale = height / unscaled_size.height()
+    # Scaling transforms the coordinate system for subsequent draw events
+    painter.scale(scale, scale)
+    painter.drawText(QRect(0, 0, unscaled_size.width(), unscaled_size.height()), Qt.AlignCenter, getIconUnicodeById(flag_id))
+    painter.end()
+    return pix
 
-def getIconById(flag_id):
-    """Create a QIcon for a given flag id.
-
-    Returns:
-        A QIcon if the given flag_id is valid, None otherwise.
-    """
-
-    if flag_id == LeakFlags.NOLEAK:
-        filename = "icons8-ok-90.png"
-    elif flag_id == LeakFlags.INVESTIGATE:
-        filename = "icons8-query-100.png"
-    elif flag_id == LeakFlags.LEAK:
-        filename = "icons8-piping-100.png"
-    elif flag_id == LeakFlags.DONTCARE:
-        filename = "icons8-waste-100.png"
-    elif flag_id == LeakFlags.RIGHT_ARROW:
-        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_ArrowRight")))
-    elif flag_id == LeakFlags.LEFT_ARROW:
-        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_ArrowLeft")))
-    elif flag_id == LeakFlags.MISSING:
-        return QIcon(QWidget().style().standardIcon(getattr(QStyle, "SP_MessageBoxQuestion")))
-    else:
-        debug(1, "[getIconById] UNKNOWN flag id: %d", flag_id)
-        return None
+def getLogoIcon():
     icon = QIcon()
-    icon.addFile(getResourcePath('icons', filename), size = QSize(50, 50))
+    icon.addFile(getResourcePath('icons', 'window_icon.png'))
     return icon
+
+def getLogoIconPixmap():
+    icon = QPixmap()
+    icon.load(getResourcePath('icons', 'window_icon.png'))
+    return icon
+
+def getResourceFile(*filename):
+    return open(getResourcePath(*filename), 'r')
 
 def getIconTooltipById(flag_id):
     """Return a tooltip for a given flag id.
@@ -378,14 +382,14 @@ def getColor(value, threshold):
     return color
 
 
-def createIconButton(size, icon_id):
+def createIconButton(size, flag_id):
     """Create a icon button which is a QPushButton object."""
     btn = QPushButton()
-    btn.setIcon(getIconById(icon_id))
-    btn.setIconSize(size)
-    btn.setToolTip(getIconTooltipById(icon_id))
+    btn.setFont(QFont("Font Awesome 5 Free Solid", default_font_size))
+    btn.setText(getIconUnicodeById(flag_id))
+    btn.setStyleSheet('QPushButton {color: #%06X;}' % getIconColorById(flag_id))
+    btn.setToolTip(getIconTooltipById(flag_id))
     btn.setFixedSize(QSize(size.width() + 5, size.height() + 5))
-
     return btn
 
 def global_exception_handler(tt, value, tb):
@@ -409,3 +413,11 @@ def register_assert_handler(handler):
     assert_handler = handler
 
 sys.excepthook = global_exception_handler
+
+def registerFonts():
+    QFontDatabase.addApplicationFont(getResourcePath('Font Awesome 5 Free-Solid-900.otf'))
+
+def getDefaultIconSize():
+    icon_size = QFontMetrics(QFont()).size(0,"Ag").height()
+    icon_size = QSize(icon_size, icon_size)
+    return icon_size
