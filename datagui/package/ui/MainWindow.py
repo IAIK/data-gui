@@ -220,6 +220,15 @@ class MainWindow(QMainWindow):
         save_as_file_act.setStatusTip('Save current file as ...')
         save_as_file_act.triggered.connect(self.saveCallHierarchy)
 
+        #
+        font_inc_act = QAction('&Increase size', self)
+        font_inc_act.triggered.connect(self.zoomIn)
+        font_inc_act.setShortcut('Ctrl++')
+        #
+        font_dec_act = QAction('&Decrease size', self)
+        font_dec_act.triggered.connect(self.zoomOut)
+        font_dec_act.setShortcut('Ctrl+-')
+
         about_act = QAction('&About', self)
         about_act.triggered.connect(self.showAbout)
 
@@ -241,7 +250,10 @@ class MainWindow(QMainWindow):
         self.view_menu.addAction(toggle_asm_act)
         self.view_menu.addAction(toggle_source_act)
 
-        #~ editor_menu = menu_bar.addMenu('&Editor')
+        # Uncomment to activate Editor font manipulations
+        editor_menu = menu_bar.addMenu('&Editor')
+        editor_menu.addAction(font_inc_act)
+        editor_menu.addAction(font_dec_act)
 
         help_menu = menu_bar.addMenu('&Help')
         help_menu.addAction(about_act)
@@ -1394,6 +1406,14 @@ class MainWindow(QMainWindow):
     def showSaveDialog(self, window_title, file_format="All Files (*)", current_dir="."):
         file_info = QFileDialog.getSaveFileName(self, window_title, current_dir, file_format)
         return file_info
+
+    def zoomIn(self):
+        self.asm_tab.scaleAllTabs(1)
+        self.src_tab.scaleAllTabs(1)
+
+    def zoomOut(self):
+        self.asm_tab.scaleAllTabs(-1)
+        self.src_tab.scaleAllTabs(-1)
 
     def updatePrevNextButtons(self):
         """Sets the enabled property of the backward and forward buttons."""

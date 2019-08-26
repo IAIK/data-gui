@@ -23,10 +23,11 @@ from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QFontMetrics
 from PyQt5.QtWidgets import QTabWidget, QFrame
 
+from datagui.package.ui.ZoomTabView import ZoomTabView
 from datagui.package.utils import getIconById, LeakFlags, debug, default_font_size
 
 
-class AsmTabView(QTabWidget):
+class AsmTabView(ZoomTabView):
 
     def __init__(self):
         super(AsmTabView, self).__init__()
@@ -107,14 +108,3 @@ class AsmTabView(QTabWidget):
 
         # set margin width (based on updated font size)
         editor.setMarginWidth(1, "000")
-
-    def wheelEvent(self, qwheelevent):
-        numDegrees = qwheelevent.angleDelta() / 120
-        inc = numDegrees.y()
-        self.zoomlevel = int(self.zoomlevel + inc)
-        # Scales zoom level
-        # fontsize remains constant
-        for i in range(self.count() - 1):
-            editor = self.widget(i)
-            editor.SendScintilla(QsciScintilla.SCI_SETZOOM, self.zoomlevel)
-            self.recomputeMarkers(editor)
