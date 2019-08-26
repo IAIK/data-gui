@@ -33,6 +33,7 @@ class AsmTabView(QTabWidget):
         self.empty_tab = QFrame()
         self.empty_tab_index = -1
         self.setStyleSheet("QTabWidget::pane { border: 1px solid red;}")
+        self.zoomlevel = 0
 
     def createNewAsmTab(self, file_path, asm_dump):
         editor = QsciScintilla()
@@ -76,7 +77,7 @@ class AsmTabView(QTabWidget):
 
         # MARGIN AND MARKERS
         # ------
-        self.setMargin(editor, editor.textHeight(0))
+        self.recomputeMarkers(editor)
 
         tab_index = self.addTab(editor, file_path.split("/")[-1])
         return tab_index
@@ -89,16 +90,8 @@ class AsmTabView(QTabWidget):
     def marginLeftClick(self, margin_nr, line_nr, state):
         debug(5, "[ASM] marginLeftClick\n\tmargin_nr: %d, line_nr: %d, state: %d", (margin_nr, line_nr, state))
 
-    def scale(self, tab_index):
-        if tab_index == -1:
-            for i in range(self.count() - 1):
-                self.scale(i)
-            return
-        editor = self.widget(tab_index)
-        icon_size = editor.textHeight(0)
-        self.setMargin(editor, icon_size)
-
-    def setMargin(self, editor, height):
+    def recomputeMarkers(self, editor):
+        height = editor.textHeight(0)
         sym_0 = getIconById(LeakFlags.NOLEAK, height)
         sym_1 = getIconById(LeakFlags.INVESTIGATE, height)
         sym_2 = getIconById(LeakFlags.LEAK, height)
@@ -116,7 +109,12 @@ class AsmTabView(QTabWidget):
         editor.setMarginWidth(1, "000")
 
     def wheelEvent(self, qwheelevent):
+        numDegrees = qwheelevent.angleDelta() / 120
+        inc = numDegrees.y()
+        self.zoomlevel = int(self.zoomlevel + inc)
         # Scales zoom level
         # fontsize remains constant
-        if qwheelevent.modifiers() == Qt.ControlModifier:
-            self.scale(-1)
+        for i in range(self.count() - 1):
+            editor = self.widget(i)
+            editor.SendScintilla(QsciScintilla.SCI_SETZOOM, self.zoomlevel)
+            self.recomputeMarkers(editor)

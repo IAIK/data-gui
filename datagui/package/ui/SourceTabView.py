@@ -34,6 +34,7 @@ class SourceTabView(QTabWidget):
         self.empty_tab_index = -1
         self.setStyleSheet("QTabWidget::pane { border: 1px solid blue; }")
         self.lexer_list = []
+        self.zoomlevel = 0
 
     def createNewSourceTab(self, source_file):
 
@@ -81,7 +82,7 @@ class SourceTabView(QTabWidget):
 
         # MARGIN AND MARKERS
         # ------
-        self.setMargin(editor, editor.textHeight(0))
+        self.recomputeMarkers(editor)
 
 
         tab_index = self.addTab(editor, source_file.name.split("/")[-1])
@@ -100,7 +101,8 @@ class SourceTabView(QTabWidget):
     def marginLeftClick(self, margin_nr, line_nr, state):
         debug(5, "[SRC] marginLeftClick\n\tmargin_nr: %d, line_nr: %d, state: %d", (margin_nr, line_nr, state))
 
-    def setMargin(self, editor, height):
+    def recomputeMarkers(self, editor):
+        height = editor.textHeight(0)
         sym_0 = getIconById(LeakFlags.NOLEAK, height)
         sym_1 = getIconById(LeakFlags.INVESTIGATE, height)
         sym_2 = getIconById(LeakFlags.LEAK, height)
@@ -118,16 +120,14 @@ class SourceTabView(QTabWidget):
         editor.setMarginWidth(0, "00000")
         editor.setMarginWidth(1, "000")
 
-    def scale(self, lexer_index):
-        if lexer_index == -1:
-            for i in range(len(self.lexer_list) - 1):
-                self.scale(i)
-            return
-        lexer = self.lexer_list[lexer_index]
-        editor = lexer.editor()
-        icon_size = editor.textHeight(0)
-        self.setMargin(editor, icon_size)
-
     def wheelEvent(self, qwheelevent):
-        if qwheelevent.modifiers() == Qt.ControlModifier:
-            self.scale(-1)
+        numDegrees = qwheelevent.angleDelta() / 120
+        inc = numDegrees.y()
+        self.zoomlevel = int(self.zoomlevel + inc)
+        # Scales zoom level
+        # fontsize remains constant
+        for i in range(self.count() - 1):
+            lexer = self.lexer_list[i]
+            editor = lexer.editor()
+            editor.SendScintilla(QsciScintilla.SCI_SETZOOM, self.zoomlevel)
+            self.recomputeMarkers(editor)

@@ -20,6 +20,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import sys
 import datetime
+import fs
 
 from PyQt5.Qsci import QsciScintilla
 from PyQt5.QtCore import Qt, QVariant, QModelIndex, QItemSelectionModel, QSize
@@ -359,7 +360,7 @@ class MainWindow(QMainWindow):
         try:
             with utils.datafs.get_file(asm_file_path, encoding='utf-8') as f:
                 asm_dump = f.read()
-        except:
+        except fs.errors.ResourceNotFound:
             debug(1, "Asm file not found: %s", asm_file_path)
             return -1
         asm_tab_index = self.asm_tab.createNewAsmTab(bin_file_path, asm_dump)
@@ -381,7 +382,7 @@ class MainWindow(QMainWindow):
         try:
             with utils.datafs.get_file(src_file_path, encoding='utf-8') as f:
                 src_tab_index = self.src_tab.createNewSourceTab(f)
-        except:
+        except fs.errors.ResourceNotFound:
             debug(1, "Source file not found: %s", src_file_path)
             return -1
         self.src_tab.widget(src_tab_index).indicatorClicked.connect(self.srcIndicatorClicked)
