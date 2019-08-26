@@ -44,7 +44,8 @@ from datagui.package.ui.AsmTabView import AsmTabView
 from datagui.package.ui.SourceTabView import SourceTabView
 from datagui.package.ui.SummaryTab import SummaryTab
 from datagui.package.utils import ErrorCode, CustomRole, IpInfo, info_map, LeakMetaInfo, ColorScheme, LeakFlags, debug, \
-    getCtxName, default_font_size, createIconButton, register_assert_handler, loadipinfo, leakToStr, getLogoIcon, getLogoIconPixmap, getResourceFile, registerFonts, getDefaultIconSize
+    getCtxName, default_font_size, createIconButton, register_assert_handler, loadipinfo, leakToStr, getLogoIcon, \
+    getLogoIconPixmap, getResourceFile, registerFonts, getDefaultIconSize, getIconById, getIconTooltipById, getIconUnicodeById, getIconColorById
 
 mainWindow = None
 
@@ -691,10 +692,27 @@ class MainWindow(QMainWindow):
 
         menu.addSeparator()
 
-        mark_act = QAction("Mark all")
-        mark_act.triggered.connect(self.markAllCallView)
-        menu.addAction(mark_act)
+        def setupMarkAction(action, leakflag):
+            action.setText("Mark as: %s" % getIconTooltipById(leakflag))
+            action.triggered.connect(lambda: self.markAllCallView(leakflag, None))
+            action.setIcon(QIcon(getIconById(leakflag)))
 
+        # Actions need to have distinct variable names. Thus, they
+        # cannot be created within setupMarkAction
+        action1 = QAction()
+        action2 = QAction()
+        action3 = QAction()
+        action4 = QAction()
+        setupMarkAction(action1, LeakFlags.DONTCARE)
+        setupMarkAction(action2, LeakFlags.NOLEAK)
+        setupMarkAction(action3, LeakFlags.INVESTIGATE)
+        setupMarkAction(action4, LeakFlags.LEAK)
+        markMenu = QMenu("Mark all children")
+        markMenu.addAction(action1)
+        markMenu.addAction(action2)
+        markMenu.addAction(action3)
+        markMenu.addAction(action4)
+        menu.addMenu(markMenu)
         menu.exec(self.call_view.viewport().mapToGlobal(pos))
 
     def showLibViewContextMenu(self, pos):
@@ -710,9 +728,27 @@ class MainWindow(QMainWindow):
 
         menu.addSeparator()
 
-        mark_act = QAction("Mark all")
-        mark_act.triggered.connect(self.markAllLibView)
-        menu.addAction(mark_act)
+        def setupMarkAction(action, leakflag):
+            action.setText("Mark as: %s" % getIconTooltipById(leakflag))
+            action.triggered.connect(lambda: self.markAllLibView(leakflag, None))
+            action.setIcon(QIcon(getIconById(leakflag)))
+
+        # Actions need to have distinct variable names. Thus, they
+        # cannot be created within setupMarkAction
+        action1 = QAction()
+        action2 = QAction()
+        action3 = QAction()
+        action4 = QAction()
+        setupMarkAction(action1, LeakFlags.DONTCARE)
+        setupMarkAction(action2, LeakFlags.NOLEAK)
+        setupMarkAction(action3, LeakFlags.INVESTIGATE)
+        setupMarkAction(action4, LeakFlags.LEAK)
+        markMenu = QMenu("Mark all children")
+        markMenu.addAction(action1)
+        markMenu.addAction(action2)
+        markMenu.addAction(action3)
+        markMenu.addAction(action4)
+        menu.addMenu(markMenu)
 
         menu.exec(self.lib_view.viewport().mapToGlobal(pos))
 
@@ -1123,15 +1159,15 @@ class MainWindow(QMainWindow):
             debug(1, "[goToCallee] Callee ip not in info_map")
             self.src_tab.setCurrentIndex(self.src_empty_tab_index)
 
-    def markAllCallView(self):
+    def markAllCallView(self, flag_id, user_comment):
         call_index = self.call_view.selectionModel().currentIndex()
         item = self.call_model.data(call_index, CustomRole.CurrentItem)
-        self.markAllRecursive(LeakFlags.DONTCARE, "Ignored", item)
+        self.markAllRecursive(flag_id, user_comment, item)
 
-    def markAllLibView(self):
+    def markAllLibView(self, flag_id, user_comment):
         lib_index = self.lib_view.selectionModel().currentIndex()
         item = self.lib_model.data(lib_index, CustomRole.CurrentItem)
-        self.markAllRecursive(LeakFlags.DONTCARE, "Ignored", item)
+        self.markAllRecursive(flag_id, user_comment, item)
 
     def markAllRecursive(self, flag_id, user_comment, item):
         """ Modify all leaks recursively.

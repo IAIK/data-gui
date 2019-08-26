@@ -365,7 +365,6 @@ def getCircle(color):
 
     return pixmap
 
-
 def getColor(value, threshold):
     # value    in [0,1]
     # threshold in [0,1]
@@ -379,7 +378,6 @@ def getColor(value, threshold):
     color = QColor()
     color.setHsl(hue, saturation, lightness, 255)
     return color
-
 
 def createIconButton(size, flag_id):
     """Create a icon button which is a QPushButton object."""
