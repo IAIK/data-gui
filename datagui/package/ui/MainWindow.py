@@ -348,11 +348,15 @@ class MainWindow(QMainWindow):
         """
 
         self.call_list_view.clicked.connect(self.callListClicked)
+        self.call_list_view.activated.connect(self.callListClicked)
         self.call_view.clicked.connect(self.callClicked)
+        self.call_view.activated.connect(self.callClicked)
         self.call_view.customContextMenuRequested.connect(self.showCallViewContextMenu)
         self.lib_view.clicked.connect(self.libClicked)
+        self.lib_view.activated.connect(self.libClicked)
         self.lib_view.customContextMenuRequested.connect(self.showLibViewContextMenu)
         self.leak_view.clicked.connect(self.leakClicked)
+        self.leak_view.activated.connect(self.leakClicked)
         self.btn_forward.clicked.connect(self.nextLeak)
         self.btn_back.clicked.connect(self.previousLeak)
         self.btn_filter_0.clicked.connect(self.updateFilter)
@@ -803,7 +807,7 @@ class MainWindow(QMainWindow):
         self.createLeakList(call_hierarchy)
         self.goToCallee()
         self.setColorScheme(ColorScheme.CALL)
-        #self.call_view.setFocus()
+        self.call_view.setFocus()
 
     def collapseCallHierarchyRecursive(self, call_item, parent_index = None):
         """ Search call hierarchy recursively to find the correct contexts for the leaks.
@@ -946,6 +950,7 @@ class MainWindow(QMainWindow):
             debug(1, "[LibView] Clicked: UNKNOWN object type")
 
         self.setColorScheme(ColorScheme.LIB)
+        self.lib_view.setFocus()
 
     def leakClicked(self, leak_index):
         if not leak_index.isValid():
@@ -959,6 +964,7 @@ class MainWindow(QMainWindow):
         if isinstance(leak, Leak):
             self.recordPrevNextEntry(leak)
             self.handleLeakSelection(leak)
+        self.leak_view.setFocus()
 
     def recordPrevNextEntry(self, leak):
         leak_idx = None
