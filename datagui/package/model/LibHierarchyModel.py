@@ -26,28 +26,28 @@ from datagui.package.model.BaseTreeModel import BaseTreeModel
 from datagui.package.utils import CustomType, CustomRole
 
 
-class libHierarchyItem(BaseTreeItem):
+class LibHierarchyItem(BaseTreeItem):
     id = -1
 
     def __init__(self, name, obj=None, parent=None):
-        super(libHierarchyItem, self).__init__(name, obj, parent)
-        self.id = libHierarchyItem.id = libHierarchyItem.id + 1
+        super(LibHierarchyItem, self).__init__(name, obj, parent)
+        self.id = LibHierarchyItem.id = LibHierarchyItem.id + 1
 
     def type(self):
-        return CustomType.libHierarchyItem
+        return CustomType.LibHierarchyItem
 
 
-class libHierarchyModel(BaseTreeModel):
+class LibHierarchyModel(BaseTreeModel):
 
     def __init__(self, lib_hierarchy=None):
-        super(libHierarchyModel, self).__init__()
+        super(LibHierarchyModel, self).__init__()
         self.root_item = None
         if lib_hierarchy is not None:
             self.setRootItem(lib_hierarchy)
 
     def setRootItem(self, lib_hierarchy):
         if lib_hierarchy is not None:
-            self.root_item = libHierarchyItem("Library Hierarchy", lib_hierarchy)
+            self.root_item = LibHierarchyItem("Library Hierarchy", lib_hierarchy)
 
     # # # # # # # # # # # # #
     # OVERLOADED FUNCTIONS  #
@@ -63,11 +63,8 @@ class libHierarchyModel(BaseTreeModel):
         elif role == CustomRole.Obj:
             item = index.internalPointer()
             return item.data(CustomRole.Obj)
-        elif role == CustomRole.Fentry:
-            item = index.internalPointer()
-            obj = item.data(CustomRole.Obj)
-            if isinstance(obj, FunctionLeak):
-                return obj.fentry
+        elif role == CustomRole.CurrentItem:
+            return index.internalPointer()
         elif role == CustomRole.Id:
             item = index.internalPointer()
             return item.id

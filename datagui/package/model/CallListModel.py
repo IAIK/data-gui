@@ -96,7 +96,7 @@ class CallListModel(BaseTreeModel):
                 return item.data(CustomRole.Ip)
         elif role == CustomRole.Id:
             return item.id
-        elif role == CustomRole.CallItem:
+        elif role == CustomRole.CurrentItem:
             if len(self.items) == 0:
                 return QVariant()
             else:

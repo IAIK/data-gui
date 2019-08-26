@@ -102,7 +102,7 @@ class CallHierarchyModel(BaseTreeModel):
         elif role == CustomRole.Id:
             item = index.internalPointer()
             return item.id
-        elif role == CustomRole.CallItem:
+        elif role == CustomRole.CurrentItem:
             return index.internalPointer()
         else:
             return QVariant()

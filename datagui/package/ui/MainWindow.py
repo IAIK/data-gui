@@ -39,7 +39,7 @@ from datagui.package import utils
 from datagui.package.model.CallHierarchyModel import CallHierarchyModel, CallHierarchyItem
 from datagui.package.model.CallListModel import CallListModel
 from datagui.package.model.LeakModel import LeakModel, LeakItem
-from datagui.package.model.LibHierarchyModel import libHierarchyModel, libHierarchyItem
+from datagui.package.model.LibHierarchyModel import LibHierarchyModel, LibHierarchyItem
 from datagui.package.ui.AsmTabView import AsmTabView
 from datagui.package.ui.SourceTabView import SourceTabView
 from datagui.package.ui.SummaryTab import SummaryTab
@@ -113,7 +113,7 @@ class MainWindow(QMainWindow):
         self.call_view = QTreeView()
         self.leak_model = LeakModel()
         self.leak_view = QTreeView()
-        self.lib_model = libHierarchyModel()
+        self.lib_model = LibHierarchyModel()
         self.lib_view = QTreeView()
         self.info_view = QTabWidget()
         self.coming_from_call_view = False
@@ -318,6 +318,7 @@ class MainWindow(QMainWindow):
     def setupLibTree(self, lib_hierarchy):
         self.lib_model.setRootItem(lib_hierarchy)
         self.lib_view.setModel(self.lib_model)
+        self.lib_view.setContextMenuPolicy(Qt.CustomContextMenu)
 
     def setupLeakTree(self):
         self.leak_view.setModel(self.leak_model)
@@ -414,7 +415,7 @@ class MainWindow(QMainWindow):
             lib = lib_hierarchy.entries[ip]
             assert isinstance(lib, Library)
             lib_name = lib.libentry.name.split('/')[-1]
-            lib_item = libHierarchyItem("{}".format(lib_name), lib, self.lib_model.root_item)
+            lib_item = LibHierarchyItem("{}".format(lib_name), lib, self.lib_model.root_item)
             self.lib_model.root_item.appendChild(lib_item)
             bin_file_path = lib.libentry.name
             asm_file_path = bin_file_path + ".asm"
@@ -572,7 +573,7 @@ class MainWindow(QMainWindow):
         ip_fl_tuples = []
         for j in sorted_keys(lib.entries):
             fl = lib.entries[j]
-            fl_item = libHierarchyItem("{}".format(getCtxName(fl.fentry)), fl, parent_item)
+            fl_item = LibHierarchyItem("{}".format(getCtxName(fl.fentry)), fl, parent_item)
             parent_item.appendChild(fl_item)
 
             assert isinstance(fl, FunctionLeak)
@@ -691,7 +692,7 @@ class MainWindow(QMainWindow):
         menu.addSeparator()
 
         mark_act = QAction("Mark all")
-        mark_act.triggered.connect(self.markAll)
+        mark_act.triggered.connect(self.markAllCallView)
         menu.addAction(mark_act)
 
         menu.exec(self.call_view.viewport().mapToGlobal(pos))
@@ -710,7 +711,7 @@ class MainWindow(QMainWindow):
         menu.addSeparator()
 
         mark_act = QAction("Mark all")
-        mark_act.triggered.connect(self.markAll)
+        mark_act.triggered.connect(self.markAllLibView)
         menu.addAction(mark_act)
 
         menu.exec(self.lib_view.viewport().mapToGlobal(pos))
@@ -969,7 +970,7 @@ class MainWindow(QMainWindow):
             debug(1, "[callList] Clicked: invalid index")
             return
 
-        call_item = self.call_list_model.data(list_index, CustomRole.CallItem)
+        call_item = self.call_list_model.data(list_index, CustomRole.CurrentItem)
         if isinstance(call_item, QVariant):
             debug(1, "[callList] Call item is empty")
             return
@@ -1122,13 +1123,14 @@ class MainWindow(QMainWindow):
             debug(1, "[goToCallee] Callee ip not in info_map")
             self.src_tab.setCurrentIndex(self.src_empty_tab_index)
 
-    def markAll(self):
-        if self.coming_from_call_view:
-            call_index = self.call_view.selectionModel().currentIndex()
-            item = self.call_model.data(call_index, CustomRole.CallItem)
-        else:
-            lib_index = self.lib_view.selectionModel().currentIndex()
-            item = self.lib_model.data(lib_index, CustomRole.LibItem)
+    def markAllCallView(self):
+        call_index = self.call_view.selectionModel().currentIndex()
+        item = self.call_model.data(call_index, CustomRole.CurrentItem)
+        self.markAllRecursive(LeakFlags.DONTCARE, "Ignored", item)
+
+    def markAllLibView(self):
+        lib_index = self.lib_view.selectionModel().currentIndex()
+        item = self.lib_model.data(lib_index, CustomRole.CurrentItem)
         self.markAllRecursive(LeakFlags.DONTCARE, "Ignored", item)
 
     def markAllRecursive(self, flag_id, user_comment, item):
@@ -1138,19 +1140,44 @@ class MainWindow(QMainWindow):
             flag_id: The flag to apply to all leaks. Can be None to leave unchanged
             user_comment: The comments to apply to all leaks. Can be None to leave unchanged
         """
-        if isinstance(item, CallHierarchyItem):
-            for k in sorted_keys(item.obj.dataleaks):
+        def markLeaks(element):
+            for k in item.obj.dataleaks:
                 dl = item.obj.dataleaks[k]
                 assert isinstance(dl.meta, LeakMetaInfo)
                 self.markLeak(dl, flag_id, user_comment)
-            for k in sorted_keys(item.obj.cfleaks):
+            for k in item.obj.cfleaks:
                 cf = item.obj.cfleaks[k]
                 assert isinstance(cf.meta, LeakMetaInfo)
                 self.markLeak(cf, flag_id, user_comment)
+
+        if isinstance(item, CallHierarchyItem):
+            markLeaks(item)
             for child_item in item.child_items:  # type: CallHierarchyItem
                 res = self.markAllRecursive(flag_id, user_comment, child_item)
         elif isinstance(item, LibHierarchyItem):
-            pass
+            if isinstance(item.obj, FunctionLeak):
+                # We cannot use leaks within FunctionLeak directly, since they are not mapped back to the CallHierarchy.
+                # Search the global map instead
+                libleaks = []
+                for k in item.obj.dataleaks:
+                    dl = item.obj.dataleaks[k]
+                    libleaks.append(dl)
+                for k in item.obj.cfleaks:
+                    cf = item.obj.cfleaks[k]
+                    libleaks.append(cf)
+                for leak in libleaks:
+                    assert leak.ip in utils.info_map
+                    ip_info = info_map[leak.ip]  # type: IpInfo
+                    for item in ip_info.call_tree_items:
+                        assert isinstance(item, CallHierarchyItem)
+                        call_hierarchy = item.obj
+                        assert isinstance(call_hierarchy, CallHistory)
+                        if isinstance(leak, DataLeak):
+                            self.markLeak(call_hierarchy.dataleaks[leak], flag_id, user_comment)
+                        elif isinstance(leak, CFLeak):
+                            self.markLeak(call_hierarchy.cfleaks[leak], flag_id, user_comment)
+            for child_item in item.child_items:  # type: LibHierarchyItem
+                res = self.markAllRecursive(flag_id, user_comment, child_item)
         else:
             debug(0, "[markAllRecursive] Invalid item type: %s" % type(item))
 
@@ -1159,6 +1186,7 @@ class MainWindow(QMainWindow):
             leak.meta.flag = flag_id
         if user_comment is not None:
             leak.meta.comment = user_comment
+        debug(0, "marked leak")
 
     def handleLeakSelection(self, leak):
         """Display views correctly after leak selection.

@@ -131,14 +131,13 @@ class CustomRole:
     Leak = Qt.UserRole + 1
     Info = Qt.UserRole + 2
     Ip = Qt.UserRole + 3
-    Fentry = Qt.UserRole + 4
-    Id = Qt.UserRole + 5
-    CallItem = Qt.UserRole + 6
+    Id = Qt.UserRole + 4
+    CurrentItem = Qt.UserRole + 5
 
 
 class CustomType:
     callHierarchyItem = QStandardItem.UserType + 0
-    libHierarchyItem = QStandardItem.UserType + 1
+    LibHierarchyItem = QStandardItem.UserType + 1
     leakItem = QStandardItem.UserType + 2
     infoItem = QStandardItem.UserType + 3
 
