@@ -785,7 +785,6 @@ class MainWindow(QMainWindow):
         dialog.setCancelButtonText("Cancel")
         dialog.setOption(QInputDialog.UsePlainTextEditForTextInput)
         retval = dialog.exec_()
-        print(retval)
         if retval == QDialog.Accepted:
             debug(1, "[markAllCallViewUserComment] Saving new user comments: %s", dialog.textValue())
             self.markAll(None, dialog.textValue(), callview)
@@ -1047,7 +1046,9 @@ class MainWindow(QMainWindow):
                 if ip_info.call_tree_items[index].obj == call_hierarchy:
                     leak_idx = index
                     break
-            assert leak_idx is not None
+            if leak_idx is None:
+                debug(0, "[Record] Missing leak index! Are views out of sync?")
+                return
         debug(1, "[Record] Entry: %s: %s", (self.coming_from_call_view, hex(utils.getLocalIp(leak.ip))))
         stack_info = utils.StackInfo(self.coming_from_call_view, leak.ip, leak_idx)
         utils.appendStackInfo(stack_info)
@@ -1260,7 +1261,6 @@ class MainWindow(QMainWindow):
             leak.meta.flag = flag_id
         if user_comment is not None:
             leak.meta.comment = user_comment
-        debug(0, "marked leak")
 
     def handleLeakSelection(self, leak):
         """Display views correctly after leak selection.

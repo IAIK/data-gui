@@ -40,7 +40,7 @@ src_map = {}  # src_map[src_tab_idx:line_nr] -> global ip
 leak_stack = []
 stack_index = -1
 
-debug_level = 4
+debug_level = 0
 
 default_font_size = 12
 

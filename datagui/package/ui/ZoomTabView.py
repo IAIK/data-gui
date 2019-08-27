@@ -54,5 +54,8 @@ class ZoomTabView(QTabWidget):
             self.recomputeMarkers(editor)
 
     def wheelEvent(self, qwheelevent):
+        if self.currentIndex() == self.count() - 1:
+            # Don't scroll on No-File tab
+            return
         self.zoomlevel = self.currentWidget().SendScintilla(QsciScintilla.SCI_GETZOOM)
         self.syncTabScalingToZoomlevel()
