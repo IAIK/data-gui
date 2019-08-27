@@ -140,6 +140,7 @@ class CustomType:
     LibHierarchyItem = QStandardItem.UserType + 1
     leakItem = QStandardItem.UserType + 2
     infoItem = QStandardItem.UserType + 3
+    callListItem = QStandardItem.UserType + 4
 
 
 class IpInfo:
@@ -236,7 +237,9 @@ def getCtxName(ip):
 
 
 class LeakFlags:
-    MISSING = -1
+    NONE = -3
+    FILTER = -2
+    INFO = -1
     DONTCARE = 0
     NOLEAK = 1
     INVESTIGATE = 2
@@ -265,30 +268,34 @@ def getResourcePath(*args):
 
 def getIconUnicodeById(flag_id):
     icons = {
+        LeakFlags.NONE:        '',
+        LeakFlags.FILTER:      u'\uf0b0', # filter
+        LeakFlags.INFO:        u'\uf129', # info
         LeakFlags.NOLEAK:      u'\uf058', # check-circle
         LeakFlags.INVESTIGATE: u'\uf059', # question-circle
         LeakFlags.LEAK:        u'\uf043', # tint
         LeakFlags.DONTCARE:    u'\uf1f8', # trash
         LeakFlags.RIGHT_ARROW: u'\uf105', # angle-right
         LeakFlags.LEFT_ARROW:  u'\uf104', # angle-left
-        LeakFlags.MISSING:     u'\uf129', # info
     }
     if flag_id not in icons:
-        flag_id = LeakFlags.MISSING
+        flag_id = LeakFlags.INFO
     return icons[flag_id]
 
 def getIconColorById(flag_id):
     colors = {
+        LeakFlags.NONE:        0x000000,
+        LeakFlags.FILTER:      0x666666,
+        LeakFlags.INFO:        0x3498db,
         LeakFlags.NOLEAK:      0x2ecc71,
         LeakFlags.INVESTIGATE: 0xf1c40f, 
         LeakFlags.LEAK:        0xe74c3c,
         LeakFlags.DONTCARE:    0x666666,
         LeakFlags.RIGHT_ARROW: 0x333333,
         LeakFlags.LEFT_ARROW:  0x333333,
-        LeakFlags.MISSING:     0x3498db,
     }
     if flag_id not in colors:
-        flag_id = LeakFlags.MISSING
+        flag_id = LeakFlags.INFO
     return colors[flag_id]
 
 def getIconById(flag_id, height = None):
@@ -339,10 +346,7 @@ def getIconTooltipById(flag_id):
         return "Go to next leak"
     elif flag_id == LeakFlags.LEFT_ARROW:
         return "Go to previous leak"
-    elif flag_id == LeakFlags.MISSING:
-        return None
     else:
-        debug(1, "[getIconTooltipById] UNKNOWN flag id: %d", flag_id)
         return None
 
 class ColorScheme:

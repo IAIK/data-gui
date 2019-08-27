@@ -21,46 +21,43 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import copy
 
 from PyQt5.QtCore import QModelIndex, QVariant, Qt
+from PyQt5.QtGui import QStandardItem
 
 from datagui.package import utils
 from datagui.package.model.BaseTreeModel import BaseTreeModel
 from datagui.package.model.CallHierarchyModel import CallHierarchyItem
-from datagui.package.utils import CustomRole
+from datagui.package.utils import CustomRole, CustomType, LeakFlags, getIconById
 
+
+class CallListItem(QStandardItem):
+    def __init__(self, name, call_item=None, leak=None, parent=None):
+        super(CallListItem, self).__init__()
+        self.name = name
+        self.call_item = call_item
+        self.leak = leak
+        self.parent_item = parent
+
+    def getDescription(self):
+        return self.name
+
+    def getFlag(self):
+        return LeakFlags.INFO if self.leak is None else self.leak.meta.flag
+
+    def type(self):
+        return CustomType.callListItem
+
+    def parent(self):
+        return self.parent_item
 
 class CallListModel(BaseTreeModel):
 
-    def __init__(self, selected_leak, item_leak_tuples, root_name):
+    def __init__(self):
         super(CallListModel, self).__init__()
         self.name = ""
         self.items = []
-        self.none_item = CallHierarchyItem("No leaks visible.")
-        self.selected_leak = None
-        assert(item_leak_tuples is not None)
-        if len(item_leak_tuples) == 0:
-            return
-
-        (item, leak) = item_leak_tuples[0]
-        name = utils.leakToStr(selected_leak)
-        self.name = name
-        self.root_item = CallHierarchyItem(name)
-        self.selected_leak = selected_leak
-
-        parent = QModelIndex()
-        num_elements = len(item_leak_tuples)
-        self.beginInsertRows(parent, 0, num_elements)
-
-        for call_item, leak in item_leak_tuples:
-            call_list_item = copy.copy(call_item)
-            call_path = self.getCallPath(call_list_item, root_name)
-            assert call_list_item.parent_item is not None
-            call_list_item.parent_item = self.root_item
-            call_list_item.description = call_path
-            call_list_item.flag_id = leak.meta.flag
-
-            self.items.append(call_list_item)
-
-        self.endInsertRows()
+        self.root_item = None
+        self.parent = None
+        self.none_item = CallListItem("No leaks visible.")
 
     # # # # # # # # # # # # #
     # OVERLOADED FUNCTIONS  #
@@ -76,37 +73,22 @@ class CallListModel(BaseTreeModel):
     def data(self, index, role):
         if not index.isValid():
             return QVariant()
-
-        if len(self.items) == 0:
-            item = self.none_item
-        else:
-            item = self.items[index.row()]
-
+        item = index.internalPointer()
         if role == Qt.DisplayRole or role == Qt.ToolTipRole:
-            return item.description
-        elif role == CustomRole.Obj:
-            if len(self.items) == 0:
-                return QVariant()
-            else:
-                return item.data(CustomRole.Obj)
+            return item.getDescription()
         elif role == CustomRole.Ip:
-            if len(self.items) == 0:
-                return QVariant()
-            else:
-                return item.data(CustomRole.Ip)
+            return QVariant() if not item.leak else item.leak.ip
         elif role == CustomRole.Id:
             return item.id
         elif role == CustomRole.CurrentItem:
-            if len(self.items) == 0:
-                return QVariant()
-            else:
-                return index.internalPointer()
+            return index.internalPointer()
         elif role == Qt.DecorationRole:
             if index.column() == 0:
-                return utils.getIconById(item.flag_id)
-            return QVariant()
-        else:
-            return QVariant()
+              if item.leak:
+                  return utils.getIconById(item.getFlag())
+              else:
+                  return utils.getIconById(LeakFlags.INFO)
+        return QVariant()
 
     def index(self, row, column, parent):
         if not self.hasIndex(row, column, parent):
@@ -141,13 +123,39 @@ class CallListModel(BaseTreeModel):
     # MY FUNCTIONS  #
     # # # # # # # # #
 
-    def getCallPath(self, call_item, root_name):
+    def getCallPath(self, call_item):
         rec_iterator = call_item
 
         function_names = []
+        assert call_item.parent_item is not None
         while rec_iterator.parent_item:
-            print(rec_iterator.name)
             function_name = rec_iterator.name.split(" ")[-1].split("(")[0]
             function_names.insert(0, function_name)
             rec_iterator = rec_iterator.parent_item
         return '/'.join(function_names)
+
+    def appendItem(self, call_item, leak):
+        # Generate long path-prefixed name
+        assert isinstance(call_item, CallHierarchyItem)
+        call_path = self.getCallPath(call_item)
+        item = CallListItem(call_path, call_item, leak)
+
+        # Add item to list
+        parent = QModelIndex()
+        row_count = self.rowCount(parent)
+        self.beginInsertRows(parent, row_count, row_count + 1)
+        self.items.append(item)
+        self.endInsertRows()
+
+        # Set header of CallList. Since every leak yields the same name
+        # we can overwrite it for each new item
+        self.name = utils.leakToStr(leak)
+        self.root_item = CallListItem(self.name)
+        self.parent = self.root_item
+
+    def clearList(self):
+        parent = QModelIndex()
+        row_count = self.rowCount(parent)
+        self.beginRemoveRows(QModelIndex(), 0, row_count - 1)
+        self.items.clear()
+        self.endRemoveRows()

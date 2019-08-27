@@ -24,7 +24,7 @@ from datastub.utils import sorted_keys
 
 from datagui.package.model.BaseTreeItem import BaseTreeItem
 from datagui.package.model.BaseTreeModel import BaseTreeModel
-from datagui.package.utils import CustomRole, CustomType, getCtxName, LeakFlags
+from datagui.package.utils import CustomRole, CustomType, getCtxName, LeakFlags, getIconById
 
 
 class CallHierarchyItem(BaseTreeItem):
@@ -33,7 +33,7 @@ class CallHierarchyItem(BaseTreeItem):
     def __init__(self, name, obj=None, parent=None):
         super(CallHierarchyItem, self).__init__(name, obj, parent)
         self.id = CallHierarchyItem.id = CallHierarchyItem.id + 1
-        self.flag_id = LeakFlags.MISSING;
+        self.flag_id = LeakFlags.INFO;
         assert self.parent_item == parent
         #self.description = name
 
@@ -49,13 +49,25 @@ class CallHierarchyItem(BaseTreeItem):
 
 class CallHierarchyModel(BaseTreeModel):
 
-    def __init__(self, call_hierarchy=None):
+    def __init__(self, call_hierarchy = None, leakfilter = None):
         super(CallHierarchyModel, self).__init__()
         self.root_item = None
-
+        self.leakfilter = leakfilter
         if call_hierarchy is not None:
             assert isinstance(call_hierarchy, CallHistory)
             self.setupData(call_hierarchy)
+
+    def getFilteredLeaks(self, item):
+        call_hierarchy = item.data(CustomRole.Obj)
+        filtered_cf = list()
+        filtered_dl = list()
+        for l in call_hierarchy.cfleaks:
+            if self.leakfilter and self.leakfilter.isFilterActive(l.meta):
+                filtered_cf.append(l)
+        for l in call_hierarchy.dataleaks:
+            if self.leakfilter and self.leakfilter.isFilterActive(l.meta):
+                filtered_dl.append(l)
+        return (filtered_cf, filtered_dl)
 
     # # # # # # # # # # # # #
     # OVERLOADED FUNCTIONS  #
@@ -64,35 +76,37 @@ class CallHierarchyModel(BaseTreeModel):
     def data(self, index, role):
         if not index.isValid():
             return QVariant()
-        if role == Qt.DisplayRole or role == Qt.ToolTipRole:
-            item = index.internalPointer()
-            call_hierarchy = item.data(CustomRole.Obj)
-            if index.column() == 0:
-                return item.data(Qt.DisplayRole)
-            elif index.column() == 1:
-                dataleaks = len(call_hierarchy.dataleaks)
-                if dataleaks > 0:
-                    return "{}".format(dataleaks)
+        item = index.internalPointer()
+        if role == Qt.DisplayRole or role == Qt.ToolTipRole or role == Qt.DecorationRole:
+            filtered_cf, filtered_dl = self.getFilteredLeaks(item)
+            filtered_all = list()
+            filtered_all.extend(filtered_cf)
+            filtered_all.extend(filtered_dl)
+            if role == Qt.DisplayRole or role == Qt.ToolTipRole:
+                if index.column() == 0:
+                    return item.data(Qt.DisplayRole)
+                elif index.column() == 1:
+                    dataleaks = len(filtered_dl)
+                    return "" if dataleaks == 0 else str(dataleaks)
+                elif index.column() == 2:
+                    cfleaks = len(filtered_cf)
+                    return "" if cfleaks == 0 else str(cfleaks)
+                elif index.column() == 3:
+                    txt = ""
+                    if len(filtered_all) > 0:
+                        max_leak_normalized = max( (l.status.max_leak_normalized() for l in filtered_all) )
+                        if max_leak_normalized > 0.00:
+                            txt = "%0.1f%%" % (max_leak_normalized * 100)
+                    return txt
                 else:
                     return ""
-            elif index.column() == 2:
-                cfleaks = len(call_hierarchy.cfleaks)
-                if cfleaks > 0:
-                    return "{}".format(cfleaks)
-                else:
-                    return ""
-            elif index.column() == 3:
-                txt = ""
-                allleaks = list()
-                allleaks.extend(call_hierarchy.dataleaks)
-                allleaks.extend(call_hierarchy.cfleaks)
-                if len(allleaks) > 0:
-                    max_leak_normalized = max( (l.status.max_leak_normalized() for l in allleaks) )
-                    if max_leak_normalized > 0.00:
-                        txt = "%0.1f%%" % (max_leak_normalized * 100)
-                return txt
-            else:
-                return ""
+            elif role == Qt.DecorationRole:
+                if index.column() == 4:
+                    max_priority = LeakFlags.NONE
+                    for l in filtered_all:
+                        if max_priority < l.meta.flag:
+                            max_priority = l.meta.flag
+                    return getIconById(max_priority)
         elif role == CustomRole.Obj:
             item = index.internalPointer()
             return item.data(CustomRole.Obj)
@@ -123,7 +137,7 @@ class CallHierarchyModel(BaseTreeModel):
             return QModelIndex()
 
     def rowCount(self, parent):
-        if parent.column() > 0:
+        if parent.column() > 1:
             return 0
 
         if not parent.isValid():
@@ -134,14 +148,14 @@ class CallHierarchyModel(BaseTreeModel):
         return len(parent_item.child_items)
 
     def columnCount(self, parent):
-        return 4
+        return 5
 
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                return ["Call Hierarchy", "D", "CF", "leakage %"][section]
+                return ["Call Hierarchy", "D", "CF", "leakage %", ""][section]
         elif role == Qt.ToolTipRole:
-            return ["Call stack information", "Data differences (phase one)", "Control-flow differences (phase one)", "Max. leakage (phase two/three)"][section]
+            return ["Call stack information", "Filtered data differences (phase one)", "Filtered control-flow differences (phase one)", "Filtered max. leakage (phase two/three)", "Filtered Leaks"][section]
         return None
 
     # # # # # # # # #

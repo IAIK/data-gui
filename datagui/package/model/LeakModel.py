@@ -71,7 +71,6 @@ class LeakModel(BaseTreeModel):
                 return item.leak.ip
         elif role == Qt.DecorationRole:
             return getIconById(item.high_prio_flag)
-
         return QVariant()
 
     def index(self, row, column, parent):
