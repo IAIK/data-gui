@@ -31,23 +31,28 @@ class ZoomTabView(QTabWidget):
         super(ZoomTabView, self).__init__()
         self.zoomlevel = 0
         self.zoomlevel_min = -10
+        self.zoomlevel_max = 30
 
     def scaleAllTabs(self, increment = 0):
-        self.zoomlevel = self.currentWidget().SendScintilla(QsciScintilla.SCI_GETZOOM)
         self.zoomlevel = int(self.zoomlevel + increment)
         if self.zoomlevel < self.zoomlevel_min:
             self.zoomlevel = self.zoomlevel_min
+        elif self.zoomlevel > self.zoomlevel_max:
+            self.zoomlevel = self.zoomlevel_max
+        self.syncTabScalingToZoomlevel()
 
+    def syncTabScalingToZoomlevel(self):
+        current = self.currentIndex()
         for i in range(self.count() - 1):
             editor = self.widget(i)
             # SCI_SETZOOM doesn't seem to work properly for negative numbers,
             # so we use SCI_ZOOMIN/SCI_ZOOMOUT.
-            if editor.SendScintilla(QsciScintilla.SCI_GETZOOM) > self.zoomlevel:
+            while editor.SendScintilla(QsciScintilla.SCI_GETZOOM) > self.zoomlevel:
                 editor.SendScintilla(QsciScintilla.SCI_ZOOMOUT)
-            elif editor.SendScintilla(QsciScintilla.SCI_GETZOOM) < self.zoomlevel:
+            while editor.SendScintilla(QsciScintilla.SCI_GETZOOM) < self.zoomlevel:
                 editor.SendScintilla(QsciScintilla.SCI_ZOOMIN)
             self.recomputeMarkers(editor)
 
     def wheelEvent(self, qwheelevent):
-        numDegrees = qwheelevent.angleDelta() / 120
-        self.scaleAllTabs(numDegrees.y())
+        self.zoomlevel = self.currentWidget().SendScintilla(QsciScintilla.SCI_GETZOOM)
+        self.syncTabScalingToZoomlevel()

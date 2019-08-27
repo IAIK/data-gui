@@ -736,7 +736,6 @@ class MainWindow(QMainWindow):
         markMenu.addAction(action5)
         menu.addMenu(markMenu)
         menu.exec(self.call_view.viewport().mapToGlobal(pos))
-        self.refreshCurrentLeak()
 
     def showLibViewContextMenu(self, pos):
         menu = QMenu("CallView Context Menu")
@@ -790,6 +789,7 @@ class MainWindow(QMainWindow):
         if retval == QDialog.Accepted:
             debug(1, "[markAllCallViewUserComment] Saving new user comments: %s", dialog.textValue())
             self.markAll(None, dialog.textValue(), callview)
+            self.refreshCurrentLeak()
         elif retval == QDialog.Rejected:
             debug(1, "[markAllCallViewUserComment] Canceled...")
 
@@ -1205,6 +1205,7 @@ class MainWindow(QMainWindow):
             lib_index = self.lib_view.selectionModel().currentIndex()
             item = self.lib_model.data(lib_index, CustomRole.CurrentItem)
         self.markAllRecursive(flag_id, user_comment, item)
+        self.refreshCurrentLeak()
 
     def markAllRecursive(self, flag_id, user_comment, item):
         """ Modify all leaks recursively.
