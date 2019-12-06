@@ -34,7 +34,7 @@ pushd ..
 DATACI=$(git rev-parse HEAD)
 DATABRANCH=$(git rev-parse --abbrev-ref HEAD)
 DEVELOP=0
-if ! [[ "${DATABRANCH}" == "master" ]] || ! [ "${GUIBRANCH}" == "master" ]]; then
+if ! [[ "${DATABRANCH}" == "master" ]] || ! [[ "${GUIBRANCH}" == "master" ]]; then
   if ! [[ "$1" == "-f" ]]; then
     echo "GUI and DATA repo must be on master branch!"
     echo "This ensures that a DATA GUI package only include released"
