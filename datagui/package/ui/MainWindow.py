@@ -19,11 +19,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 import sys
+import datetime
+import fs
+
 from PyQt5.Qsci import QsciScintilla
 from PyQt5.QtCore import Qt, QVariant, QModelIndex, QItemSelectionModel, QSize
-from PyQt5.QtGui import QIcon, QPalette
+from PyQt5.QtGui import QBrush, QColor, QIcon, QPalette, QFont
 from PyQt5.QtWidgets import QMainWindow, QFrame, QSplitter, QHBoxLayout, QAction, QApplication, QTabWidget, \
-    QTreeView, QMenu, QStackedWidget, QFileDialog, QStyle, QMessageBox
+    QTreeView, QMenu, QStackedWidget, QDialog, QFileDialog, QInputDialog, QStyle, QMessageBox, QHeaderView
 from datastub.export import *
 from datastub.DataFS import *
 from datastub.IpInfoShort import *
@@ -34,14 +37,34 @@ from datastub.utils import sorted_keys
 from datagui import DATAGUI_VERSION
 from datagui.package import utils
 from datagui.package.model.CallHierarchyModel import CallHierarchyModel, CallHierarchyItem
-from datagui.package.model.CallListModel import CallListModel
+from datagui.package.model.CallListModel import CallListModel, CallListItem
 from datagui.package.model.LeakModel import LeakModel, LeakItem
-from datagui.package.model.LibHierarchyModel import libHierarchyModel, libHierarchyItem
+from datagui.package.model.LibHierarchyModel import LibHierarchyModel, LibHierarchyItem
 from datagui.package.ui.AsmTabView import AsmTabView
 from datagui.package.ui.SourceTabView import SourceTabView
 from datagui.package.ui.SummaryTab import SummaryTab
 from datagui.package.utils import ErrorCode, CustomRole, IpInfo, info_map, LeakMetaInfo, ColorScheme, LeakFlags, debug, \
-    getCtxName, default_font_size
+    getCtxName, default_font_size, createIconButton, register_assert_handler, loadipinfo, leakToStr, getLogoIcon, \
+    getLogoIconPixmap, getResourceFile, registerFonts, getDefaultIconSize, getIconById, getIconTooltipById, getIconUnicodeById, getIconColorById
+
+mainWindow = None
+
+def assert_handler(msg):
+    dump_path = mainWindow.pickle_path
+    if dump_path is None or dump_path == "":
+        dump_path = "dump.pickle"
+    dump_path += "." + str(datetime.datetime.now().time()) + ".autosave"
+    storepickle(dump_path, mainWindow.call_hierarchy)
+    debug(0, "Dumped pickle file to %s", (dump_path))
+    if mainWindow:
+        mainWindow.askAssert(msg, dump_path)
+
+class LeakFilter():
+    def __init__(self, mainWindow):
+        self.main = mainWindow
+
+    def isFilterActive(self, leak_meta):
+        return self.main.isFilterActive(leak_meta)
 
 class MainWindow(QMainWindow):
 
@@ -50,52 +73,64 @@ class MainWindow(QMainWindow):
         self.pickle_path = ""
         self.dialog_path = "."
         self.unsaved_changes = False
-        call_hierarchy = None
+        self.call_hierarchy = None # Only for assert_handler
+        #~ self.leakFilter = LeakFilter()
+
+        global mainWindow
+        mainWindow = self
+
+        register_assert_handler(assert_handler)
+        registerFonts()
 
         if len(sys.argv) == 3:
             self.pickle_path = sys.argv[1]
             self.dialog_path = os.path.dirname(os.path.abspath(self.pickle_path))
             try:
-                call_hierarchy = loadpickle(self.pickle_path)
+                self.call_hierarchy = loadpickle(self.pickle_path)
+                if not self.call_hierarchy:
+                    raise FileNotFoundError()
             except FileNotFoundError:
                 debug(0, "Please enter a valid pickle file path (mandatory)")
-                exit(ErrorCode.INVALID_PICKLE)
-            except:
+                sys.exit(ErrorCode.INVALID_PICKLE)
+            except Exception as e:
                 debug(0, "Unable to load pickle file")
-                exit(ErrorCode.CANNOT_LOAD_PICKLE)
+                debug(1, "Exception: " + str(e))
+                sys.exit(ErrorCode.CANNOT_LOAD_PICKLE)
 
             try:
                 utils.setupSymbolInfo(sys.argv[2])
             except FileNotFoundError:
                 debug(0, "Please enter a valid zip file path (mandatory)")
-                exit(ErrorCode.INVALID_ZIP)
+                sys.exit(ErrorCode.INVALID_ZIP)
             except:
                 debug(0, "Unable to load zip file")
-                exit(ErrorCode.CANNOT_LOAD_ZIP)
+                sys.exit(ErrorCode.CANNOT_LOAD_ZIP)
         else:
-            call_hierarchy = self.openFiles()
+            self.call_hierarchy = self.openFiles()
 
-        if call_hierarchy is None:
+        if self.call_hierarchy is None:
             debug(0, "Error opening pickle/zip file")
-            exit(ErrorCode.CANNOT_LOAD_PICKLE)
+            sys.exit(ErrorCode.CANNOT_LOAD_PICKLE)
 
-        lib_hierarchy = call_hierarchy.flatten()
+        lib_hierarchy = self.call_hierarchy.flatten()
 
         self.main_view = QFrame(self)
         self.asm_tab = AsmTabView()
         self.src_tab = SourceTabView()
-        self.editor_font_size = default_font_size
-        self.call_model = CallHierarchyModel()
+        self.leakfilter = LeakFilter(self)
+        self.call_model = CallHierarchyModel(call_hierarchy = None, leakfilter = self.leakfilter)
         self.call_view = QTreeView()
         self.leak_model = LeakModel()
-        self.leak_model = LeakModel()
         self.leak_view = QTreeView()
-        self.lib_model = libHierarchyModel()
+        self.lib_model = LibHierarchyModel()
         self.lib_view = QTreeView()
         self.info_view = QTabWidget()
-        self.coming_from_call_view = False
-        self.call_list_view = QTreeView()
         self.call_list_model = CallListModel()
+        self.call_list_view = QTreeView()
+        self.call_list_view.setModel(self.call_list_model)
+
+        self.coming_from_call_view = False
+
         self.stacked_widget = QStackedWidget()
         self.stacked_widget.addWidget(self.info_view)
         self.stacked_widget.addWidget(self.call_list_view)
@@ -108,15 +143,32 @@ class MainWindow(QMainWindow):
         self.info_splitter = QSplitter(Qt.Vertical)
         self.main_hbox = QHBoxLayout(self.main_view)
         self.main_toolbar = self.addToolBar('main')
-        self.btn_back = utils.createIconButton(QSize(20, 20), LeakFlags.LEFT_ARROW)
-        self.btn_forward = utils.createIconButton(QSize(20, 20), LeakFlags.RIGHT_ARROW)
+        # # # # #
+        # Filter Buttons
+        icon_size = getDefaultIconSize()
+        self.btn_back = createIconButton(icon_size, LeakFlags.LEFT_ARROW)
+        self.btn_forward = createIconButton(icon_size, LeakFlags.RIGHT_ARROW)
+        self.btn_filter_0 = createIconButton(icon_size, LeakFlags.NOLEAK)
+        self.btn_filter_1 = createIconButton(icon_size, LeakFlags.INVESTIGATE)
+        self.btn_filter_2 = createIconButton(icon_size, LeakFlags.LEAK)
+        self.btn_filter_3 = createIconButton(icon_size, LeakFlags.DONTCARE)
+        self.btn_filter_0.setCheckable(True)
+        self.btn_filter_1.setCheckable(True)
+        self.btn_filter_2.setCheckable(True)
+        self.btn_filter_3.setCheckable(True)
+        self.btn_filter_0.setChecked(True)
+        self.btn_filter_1.setChecked(True)
+        self.btn_filter_2.setChecked(True)
+        self.btn_filter_3.setChecked(True)
+        # # # # #
         self.statusbar = self.statusBar()
         # # # # #
         self.setupMenu()
         self.setupUI()
-        self.setupCallTree(call_hierarchy)
+        self.setupCallTree(self.call_hierarchy)
         self.setupLibTree(lib_hierarchy)
         self.setupLeakTree()
+        self.setupCallListTree()
         self.setupInfoMap(lib_hierarchy)
         self.setupEmptyTabs()
         self.setupHistoryButtons()
@@ -180,14 +232,19 @@ class MainWindow(QMainWindow):
                                    'Save pickle &As ...', self)
         save_as_file_act.setStatusTip('Save current file as ...')
         save_as_file_act.triggered.connect(self.saveCallHierarchy)
+
         #
         font_inc_act = QAction('&Increase size', self)
-        font_inc_act.triggered.connect(self.increaseFontSize)
+        font_inc_act.triggered.connect(self.zoomIn)
         font_inc_act.setShortcut('Ctrl++')
         #
         font_dec_act = QAction('&Decrease size', self)
-        font_dec_act.triggered.connect(self.decreaseFontSize)
+        font_dec_act.triggered.connect(self.zoomOut)
         font_dec_act.setShortcut('Ctrl+-')
+
+        about_act = QAction('&About', self)
+        about_act.triggered.connect(self.showAbout)
+
         # # # # # #
         # MENUBAR #
         # # # # # #
@@ -210,11 +267,19 @@ class MainWindow(QMainWindow):
         editor_menu = menu_bar.addMenu('&Editor')
         editor_menu.addAction(font_inc_act)
         editor_menu.addAction(font_dec_act)
+
+        help_menu = menu_bar.addMenu('&Help')
+        help_menu.addAction(about_act)
+
         # # # # # #
         # TOOLBAR #
         # # # # # #
         self.main_toolbar.addWidget(self.btn_back)
         self.main_toolbar.addWidget(self.btn_forward)
+        self.main_toolbar.addWidget(self.btn_filter_0)
+        self.main_toolbar.addWidget(self.btn_filter_1)
+        self.main_toolbar.addWidget(self.btn_filter_2)
+        self.main_toolbar.addWidget(self.btn_filter_3)
         # # # # # # #
         # STATUSBAR #
         # # # # # # #
@@ -260,14 +325,19 @@ class MainWindow(QMainWindow):
     def setupCallTree(self, call_hierarchy):
         self.call_model.setupData(call_hierarchy)
         self.call_view.setModel(self.call_model)
+        self.call_view.header().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.call_view.setContextMenuPolicy(Qt.CustomContextMenu)
 
     def setupLibTree(self, lib_hierarchy):
         self.lib_model.setRootItem(lib_hierarchy)
         self.lib_view.setModel(self.lib_model)
+        self.lib_view.setContextMenuPolicy(Qt.CustomContextMenu)
 
     def setupLeakTree(self):
         self.leak_view.setModel(self.leak_model)
+
+    def setupCallListTree(self):
+        self.call_list_view.setModel(self.call_list_model)
 
     def setupEmptyTabs(self):
         """Add empty tabs to asm and src editor.
@@ -293,12 +363,21 @@ class MainWindow(QMainWindow):
         """
 
         self.call_list_view.clicked.connect(self.callListClicked)
+        self.call_list_view.activated.connect(self.callListClicked)
         self.call_view.clicked.connect(self.callClicked)
+        self.call_view.activated.connect(self.callClicked)
         self.call_view.customContextMenuRequested.connect(self.showCallViewContextMenu)
         self.lib_view.clicked.connect(self.libClicked)
+        self.lib_view.activated.connect(self.libClicked)
+        self.lib_view.customContextMenuRequested.connect(self.showLibViewContextMenu)
         self.leak_view.clicked.connect(self.leakClicked)
+        self.leak_view.activated.connect(self.leakClicked)
         self.btn_forward.clicked.connect(self.nextLeak)
         self.btn_back.clicked.connect(self.previousLeak)
+        self.btn_filter_0.clicked.connect(self.updateFilter)
+        self.btn_filter_1.clicked.connect(self.updateFilter)
+        self.btn_filter_2.clicked.connect(self.updateFilter)
+        self.btn_filter_3.clicked.connect(self.updateFilter)
 
     def addAsmTab(self, bin_file_path, asm_file_path):
         """Add new tab to asm tab widget.
@@ -314,7 +393,7 @@ class MainWindow(QMainWindow):
         try:
             with utils.datafs.get_file(asm_file_path, encoding='utf-8') as f:
                 asm_dump = f.read()
-        except:
+        except fs.errors.ResourceNotFound:
             debug(1, "Asm file not found: %s", asm_file_path)
             return -1
         asm_tab_index = self.asm_tab.createNewAsmTab(bin_file_path, asm_dump)
@@ -336,7 +415,7 @@ class MainWindow(QMainWindow):
         try:
             with utils.datafs.get_file(src_file_path, encoding='utf-8') as f:
                 src_tab_index = self.src_tab.createNewSourceTab(f)
-        except:
+        except fs.errors.ResourceNotFound:
             debug(1, "Source file not found: %s", src_file_path)
             return -1
         self.src_tab.widget(src_tab_index).indicatorClicked.connect(self.srcIndicatorClicked)
@@ -350,13 +429,13 @@ class MainWindow(QMainWindow):
         assert isinstance(lib_hierarchy, LibHierarchy)
 
         with utils.datafs.get_binfile(IP_INFO_FILE) as f:
-            short_info_map = pickle.load(f)
+            short_info_map = loadipinfo(f)
 
         for ip in sorted_keys(lib_hierarchy.entries):
             lib = lib_hierarchy.entries[ip]
             assert isinstance(lib, Library)
             lib_name = lib.libentry.name.split('/')[-1]
-            lib_item = libHierarchyItem("{}".format(lib_name), lib, self.lib_model.root_item)
+            lib_item = LibHierarchyItem("{}".format(lib_name), lib, self.lib_model.root_item)
             self.lib_model.root_item.appendChild(lib_item)
             bin_file_path = lib.libentry.name
             asm_file_path = bin_file_path + ".asm"
@@ -369,7 +448,7 @@ class MainWindow(QMainWindow):
                     if addr not in short_info_map:
                         debug(0, "Cannot find addr in short_info_map")
                         debug(0, "(Could be a wrong combination of pickle and zip file?)")
-                        exit(ErrorCode.INVALID_COMB_OF_FILES)
+                        sys.exit(ErrorCode.INVALID_COMB_OF_FILES)
 
                     short_info = short_info_map[addr]
                     assert isinstance(short_info, IpInfoShort)
@@ -379,7 +458,7 @@ class MainWindow(QMainWindow):
                         search_str = format(utils.getLocalIp(addr), 'x') + ":"
                         if asm_tab_index != -1:
                             asm_marker_handle = self.asm_tab.widget(asm_tab_index).markerAdd(short_info.asm_line_nr,
-                                                                                             utils.LeakFlags.WARNING)
+                                                                                             utils.LeakFlags.INVESTIGATE)
                             asm_line_text = self.asm_tab.widget(asm_tab_index).text(short_info.asm_line_nr)
                             self.setAsmIndicator(addr, asm_tab_index, short_info.asm_line_nr,
                                                  asm_line_text.find(search_str), len(search_str) - 1)
@@ -395,7 +474,7 @@ class MainWindow(QMainWindow):
 
                             if src_tab_index != -1:
                                 src_marker_handle = self.src_tab.widget(src_tab_index).markerAdd(src_line_nr,
-                                                                                                 utils.LeakFlags.WARNING)
+                                                                                                 utils.LeakFlags.INVESTIGATE)
                                 src_line_text = self.src_tab.widget(src_tab_index).text(src_line_nr)
                                 start_pos = len(src_line_text) - len(src_line_text.lstrip())
                                 self.setSrcIndicator(addr, src_tab_index, src_line_nr, start_pos, 0)
@@ -440,6 +519,26 @@ class MainWindow(QMainWindow):
                                  src_line_nr, -1, None)
                 utils.info_map[ip] = ip_info
 
+    def updateFilter(self):
+        #self.collapseCallHierarchy()
+        self.refreshCurrentLeak()
+        debug(1, "Update filter")
+
+    def isFilterActive(self, leak_meta):
+        assert isinstance(leak_meta, LeakMetaInfo)
+        leak_flags = leak_meta.flag
+        if leak_flags == LeakFlags.NOLEAK:
+            return self.btn_filter_0.isChecked()
+        elif leak_flags == LeakFlags.INVESTIGATE:
+            return self.btn_filter_1.isChecked()
+        elif leak_flags == LeakFlags.LEAK:
+            return self.btn_filter_2.isChecked()
+        elif leak_flags == LeakFlags.DONTCARE:
+            return self.btn_filter_3.isChecked()
+        else:
+            debug(0, "Invalid leak flag %s", (str(leak_flags)))
+            return False
+
     def findIptoCallMappings(self, call_item):
         """ Search call hierarchy recursively to find the correct contexts for the leaks.
 
@@ -451,29 +550,28 @@ class MainWindow(QMainWindow):
             dl = call_item.obj.dataleaks[k]
             ip = dl.ip
 
-            if ip in utils.info_map:
-                utils.info_map[ip].call_tree_items.append(call_item)
-
             if dl.meta is None:
                 dl.meta = LeakMetaInfo()
+
+            if ip in utils.info_map:
+                utils.info_map[ip].call_tree_items.append(call_item)
 
         for k in sorted_keys(call_item.obj.cfleaks):
             cf = call_item.obj.cfleaks[k]
             ip = cf.ip
-            if ip in utils.info_map:
-                utils.info_map[ip].call_tree_items.append(call_item)
 
             if cf.meta is None:
                 cf.meta = LeakMetaInfo()
+
+            if ip in utils.info_map:
+                utils.info_map[ip].call_tree_items.append(call_item)
 
         for child_item in call_item.child_items:  # type: CallHierarchyItem
             self.findIptoCallMappings(child_item)
 
     def setupWindowInfo(self):
         self.setWindowTitle('DATA - Differential Address Trace Analysis ' + DATAGUI_VERSION)
-        window_icon = QIcon('resources/icons/window_icon.png')
-        window_icon.actualSize(QSize(50, 50))
-        self.setWindowIcon(window_icon)
+        self.setWindowIcon(getLogoIcon())
         self.setGeometry(100, 100, 1600, 700)
         self.show()
         # self.showMaximized()
@@ -495,7 +593,7 @@ class MainWindow(QMainWindow):
         ip_fl_tuples = []
         for j in sorted_keys(lib.entries):
             fl = lib.entries[j]
-            fl_item = libHierarchyItem("{}".format(getCtxName(fl.fentry)), fl, parent_item)
+            fl_item = LibHierarchyItem("{}".format(getCtxName(fl.fentry)), fl, parent_item)
             parent_item.appendChild(fl_item)
 
             assert isinstance(fl, FunctionLeak)
@@ -611,7 +709,88 @@ class MainWindow(QMainWindow):
         collapse_act.triggered.connect(self.call_view.collapseAll)
         menu.addAction(collapse_act)
 
+        menu.addSeparator()
+
+        def setupMarkAction(action, leakflag):
+            action.setText("Mark as: %s" % getIconTooltipById(leakflag))
+            action.triggered.connect(lambda: self.markAll(leakflag, None, True))
+            action.setIcon(QIcon(getIconById(leakflag)))
+
+        # Actions need to have distinct variable names. Thus, they
+        # cannot be created within setupMarkAction
+        action1 = QAction()
+        action2 = QAction()
+        action3 = QAction()
+        action4 = QAction()
+        action5 = QAction("Set user comment for all...")
+        action5.triggered.connect(lambda: self.queryMarkAllUserComment(True))
+        setupMarkAction(action1, LeakFlags.DONTCARE)
+        setupMarkAction(action2, LeakFlags.NOLEAK)
+        setupMarkAction(action3, LeakFlags.INVESTIGATE)
+        setupMarkAction(action4, LeakFlags.LEAK)
+        markMenu = QMenu("Mark all children")
+        markMenu.addAction(action1)
+        markMenu.addAction(action2)
+        markMenu.addAction(action3)
+        markMenu.addAction(action4)
+        markMenu.addAction(action5)
+        menu.addMenu(markMenu)
         menu.exec(self.call_view.viewport().mapToGlobal(pos))
+
+    def showLibViewContextMenu(self, pos):
+        menu = QMenu("CallView Context Menu")
+
+        expand_act = QAction("Expand all")
+        expand_act.triggered.connect(self.lib_view.expandAll)
+        menu.addAction(expand_act)
+
+        collapse_act = QAction("Collapse all")
+        collapse_act.triggered.connect(self.lib_view.collapseAll)
+        menu.addAction(collapse_act)
+
+        menu.addSeparator()
+
+        def setupMarkAction(action, leakflag):
+            action.setText("Mark as: %s" % getIconTooltipById(leakflag))
+            action.triggered.connect(lambda: self.markAll(leakflag, None, False))
+            action.setIcon(QIcon(getIconById(leakflag)))
+
+        # Actions need to have distinct variable names. Thus, they
+        # cannot be created within setupMarkAction
+        action1 = QAction()
+        action2 = QAction()
+        action3 = QAction()
+        action4 = QAction()
+        action5 = QAction("Set user comment for all...")
+        action5.triggered.connect(lambda: self.queryMarkAllUserComment(False))
+        setupMarkAction(action1, LeakFlags.DONTCARE)
+        setupMarkAction(action2, LeakFlags.NOLEAK)
+        setupMarkAction(action3, LeakFlags.INVESTIGATE)
+        setupMarkAction(action4, LeakFlags.LEAK)
+        markMenu = QMenu("Mark all children")
+        markMenu.addAction(action1)
+        markMenu.addAction(action2)
+        markMenu.addAction(action3)
+        markMenu.addAction(action4)
+        markMenu.addAction(action5)
+        menu.addMenu(markMenu)
+        menu.exec(self.lib_view.viewport().mapToGlobal(pos))
+        self.refreshCurrentLeak()
+
+    def queryMarkAllUserComment(self, callview):
+        dialog = QInputDialog()
+        dialog.setInputMode(QInputDialog.TextInput)
+        dialog.setLabelText("Enter user comments to apply to all children")
+        dialog.setOkButtonText("Save for all")
+        dialog.setCancelButtonText("Cancel")
+        dialog.setOption(QInputDialog.UsePlainTextEditForTextInput)
+        retval = dialog.exec_()
+        if retval == QDialog.Accepted:
+            debug(1, "[markAllCallViewUserComment] Saving new user comments: %s", dialog.textValue())
+            self.markAll(None, dialog.textValue(), callview)
+            self.refreshCurrentLeak()
+        elif retval == QDialog.Rejected:
+            debug(1, "[markAllCallViewUserComment] Canceled...")
 
     def asmIndicatorClicked(self, line_nr, line_index, pressed_key):
         map_key = utils.createKey(self.asm_tab.currentIndex(), line_nr)
@@ -640,10 +819,6 @@ class MainWindow(QMainWindow):
     def setAsmIndicator(self, addr, asm_tab_index, line_nr, line_index, end_pos):
         asm_editor = self.asm_tab.widget(asm_tab_index)
         asm_editor.SendScintilla(QsciScintilla.SCI_SETINDICATORCURRENT, 0)
-        # value not used at the moment
-        # Is there a good way to use it again?
-        value = -1
-        asm_editor.SendScintilla(QsciScintilla.SCI_SETINDICATORVALUE, value)
         start_pos = asm_editor.positionFromLineIndex(line_nr, line_index)
         asm_editor.SendScintilla(QsciScintilla.SCI_INDICATORFILLRANGE, start_pos, end_pos)
         key = utils.createKey(asm_tab_index, line_nr)
@@ -652,10 +827,6 @@ class MainWindow(QMainWindow):
     def setSrcIndicator(self, addr, src_tab_index, line_nr, line_index, end_pos):
         src_editor = self.src_tab.widget(src_tab_index)
         src_editor.SendScintilla(QsciScintilla.SCI_SETINDICATORCURRENT, 0)
-        # value not used at the moment
-        # Is there a good way to use it again?
-        value = -1
-        src_editor.SendScintilla(QsciScintilla.SCI_SETINDICATORVALUE, value)
         start_pos = src_editor.positionFromLineIndex(line_nr, line_index)
         end_pos = src_editor.lineLength(line_nr) - line_index
         src_editor.SendScintilla(QsciScintilla.SCI_INDICATORFILLRANGE, start_pos, end_pos)
@@ -672,6 +843,46 @@ class MainWindow(QMainWindow):
         self.createLeakList(call_hierarchy)
         self.goToCallee()
         self.setColorScheme(ColorScheme.CALL)
+        self.call_view.setFocus()
+
+    def collapseCallHierarchyRecursive(self, call_item, parent_index = None):
+        """ Search call hierarchy recursively to find the correct contexts for the leaks.
+
+        Args:
+            call_item: Root item of the call hierarchy
+        """
+        has_active_leaks = False
+        assert isinstance(call_item, CallHierarchyItem)
+        for k in sorted_keys(call_item.obj.dataleaks):
+            dl = call_item.obj.dataleaks[k]
+            assert isinstance(dl.meta, LeakMetaInfo)
+            if self.isFilterActive(dl.meta):
+                has_active_leaks = True
+                break
+        for k in sorted_keys(call_item.obj.cfleaks):
+            cf = call_item.obj.cfleaks[k]
+            assert isinstance(cf.meta, LeakMetaInfo)
+            if self.isFilterActive(cf.meta):
+                has_active_leaks = True
+                break
+
+        index = self.findCallItemIndex(call_item.id, parent_index)
+
+        for child_item in call_item.child_items:  # type: CallHierarchyItem
+            res = self.collapseCallHierarchyRecursive(child_item, index)
+            has_active_leaks = has_active_leaks or res
+        if index is not None:
+            if has_active_leaks:
+                self.call_view.expand(index)
+            else:
+                self.call_view.collapse(index)
+
+        return has_active_leaks
+
+    def collapseCallHierarchy(self):
+        # collapse call hierarchy for all hierarchy items that do not have active leaks
+        # That is, their leaks are filtered
+        self.collapseCallHierarchyRecursive(self.call_model.root_item)
 
     def setColorScheme(self, scheme):
         pal = QPalette()
@@ -696,13 +907,14 @@ class MainWindow(QMainWindow):
 
     def createLeakList(self, obj):
         """Create all leak items for a given obj."""
-        if not isinstance(obj, CallHistory) and not isinstance(obj, FunctionLeak):
-            return
+        assert isinstance(obj, CallHistory) or isinstance(obj, FunctionLeak)
 
         if self.coming_from_call_view:
-            self.leak_model.root_item.name = "Call Hierarchy Leaks"
+            self.leak_model.header = "Call Hierarchy Leaks"
+            self.leak_model.headertooltip = "List all leaks of the selected call hierarchy element"
         else:
-            self.leak_model.root_item.name = "Library Hierarchy Leaks"
+            self.leak_model.header = "Library Hierarchy Leaks"
+            self.leak_model.headertooltip = "List all leaks of the selected library element"
 
         self.leak_model.clearList()
         for k in sorted_keys(obj.dataleaks):
@@ -712,23 +924,49 @@ class MainWindow(QMainWindow):
             cf = obj.cfleaks[j]
             self.addLeakItem(obj, cf)
 
-        if self.leak_model.rowCount(QModelIndex()) == 0:
-            self.leak_model.appendItem(LeakItem("No leaks detected", None))
-
     def addLeakItem(self, obj, leak):
         """Add single leak item to leak model."""
-        if isinstance(leak, DataLeak):
-            leak_type = "DataLeak"
-        elif isinstance(leak, CFLeak):
-            leak_type = "CFLeak"
-        else:
-            leak_type = "UNKNOWN_LEAK_TYPE"
-            debug(1, "[addLeakItem]: UNKNOWN leak type")
-        leak_item = LeakItem("{}: {}".format(leak_type, hex(utils.getLocalIp(leak.ip))), leak)
+        meta = leak.meta
+        if meta is not None:
+            # This only applies when coming from CallHierarchy
+            if not self.isFilterActive(meta):
+                debug(3, "Filtering leak %x", (leak.ip))
+                return
+
+        leak_item = LeakItem(utils.leakToStr(leak), leak)
+        # When coming from LibHierarchy, all leaks are displayed, but if filtered, the high_prio_flag might become empty
         leak_item.high_prio_flag = self.getMaxPriority(obj, leak)
         ip_info = info_map[leak.ip]
         self.updateMarginSymbol(ip_info, leak_item.high_prio_flag)
         self.leak_model.appendItem(leak_item)
+
+    def createCallList(self, selected_leak, call_tree_items):
+        self.call_list_model.clearList()
+        for item in call_tree_items:
+            assert isinstance(item, CallHierarchyItem)
+            call_hierarchy = item.obj
+            assert isinstance(call_hierarchy, CallHistory)
+            if isinstance(selected_leak, DataLeak):
+                dl = call_hierarchy.dataleaks[selected_leak]
+                meta = dl.meta
+                assert isinstance(meta, LeakMetaInfo)
+                if not self.isFilterActive(meta):
+                    debug(3, "Filtering data leak %x", (dl.ip))
+                    continue
+                self.call_list_model.appendItem(item, dl)
+            elif isinstance(selected_leak, CFLeak):
+                cf = call_hierarchy.cfleaks[selected_leak]
+                meta = cf.meta
+                assert isinstance(meta, LeakMetaInfo)
+                if not self.isFilterActive(meta):
+                    debug(3, "Filtering data leak %x", (cf.ip))
+                    continue
+                self.call_list_model.appendItem(item, cf)
+            else:
+                assert False
+                return
+        self.stacked_widget.setCurrentIndex(1)
+        self.stacked_widget.show()
 
     def getMaxPriority(self, obj, leak):
         """Find flag id with maximum priority.
@@ -747,7 +985,7 @@ class MainWindow(QMainWindow):
         elif isinstance(obj, FunctionLeak):
             call_items = info_map[leak.ip].call_tree_items
 
-            max_priority = -1
+            max_priority = LeakFlags.FILTER
             for tree_item in call_items:
                 call_hierarchy = tree_item.obj
                 call_leak = None
@@ -755,7 +993,8 @@ class MainWindow(QMainWindow):
                     call_leak = call_hierarchy.dataleaks[leak]
                 elif isinstance(leak, CFLeak):
                     call_leak = call_hierarchy.cfleaks[leak]
-
+                if not self.isFilterActive(call_leak.meta):
+                    continue
                 if max_priority < call_leak.meta.flag:
                     max_priority = call_leak.meta.flag
 
@@ -777,6 +1016,7 @@ class MainWindow(QMainWindow):
             debug(1, "[LibView] Clicked: UNKNOWN object type")
 
         self.setColorScheme(ColorScheme.LIB)
+        self.lib_view.setFocus()
 
     def leakClicked(self, leak_index):
         if not leak_index.isValid():
@@ -790,6 +1030,7 @@ class MainWindow(QMainWindow):
         if isinstance(leak, Leak):
             self.recordPrevNextEntry(leak)
             self.handleLeakSelection(leak)
+        self.leak_view.setFocus()
 
     def recordPrevNextEntry(self, leak):
         leak_idx = None
@@ -805,7 +1046,9 @@ class MainWindow(QMainWindow):
                 if ip_info.call_tree_items[index].obj == call_hierarchy:
                     leak_idx = index
                     break
-            assert leak_idx is not None
+            if leak_idx is None:
+                debug(0, "[Record] Missing leak index! Are views out of sync?")
+                return
         debug(1, "[Record] Entry: %s: %s", (self.coming_from_call_view, hex(utils.getLocalIp(leak.ip))))
         stack_info = utils.StackInfo(self.coming_from_call_view, leak.ip, leak_idx)
         utils.appendStackInfo(stack_info)
@@ -837,23 +1080,46 @@ class MainWindow(QMainWindow):
             debug(1, "[callList] Clicked: invalid index")
             return
 
-        call_item = self.call_list_model.data(list_index, CustomRole.CallItem)
-        call_hierarchy = self.call_list_model.data(list_index, CustomRole.Obj)
-
+        item = self.call_list_model.data(list_index, CustomRole.CurrentItem)
+        ip = self.call_list_model.data(list_index, CustomRole.Ip)
+        if isinstance(item, QVariant) or isinstance(ip, QVariant):
+            debug(1, "[callList] Call item is empty")
+            return
+        assert isinstance(item, CallListItem)
         self.coming_from_call_view = True
-        self.selectCallItem(call_item.id)
-        self.createLeakList(call_hierarchy)
-        leak = self.selectLeakItem(self.call_list_model.selected_leak.ip)
-        assert leak is not None
-        ip_info = info_map[leak.ip]
-        self.selectLibItem(ip_info.lib_tree_item.id)
-        self.adjustEditors(ip_info)
-        self.setupInfoBox(leak)
-        self.setColorScheme(ColorScheme.BOTH)
-        self.recordPrevNextEntry(leak)
+        self.selectCallItem(item.call_item.id)
+        # Re-create leak list to ensure coming_from_call_view = True
+        self.createLeakList(item.call_item.obj)
+        # This leak needs to be that of CallView, not of LibView, in order to contain leak.meta
+        leak = self.selectLeakItem(ip)
+        if leak is None:
+            debug(0, "[callList] Leak is empty. Try to refresh views")
+        else:
+            ip_info = info_map[leak.ip]
+            self.selectLibItem(ip_info.lib_tree_item.id)
+            self.adjustEditors(ip_info)
+            self.setupInfoBox(leak)
+            self.setColorScheme(ColorScheme.BOTH)
+            self.recordPrevNextEntry(leak)
 
-    def selectCallItem(self, call_item_id):
-        index_list = self.call_model.match(self.call_model.index(0, 0, QModelIndex()), CustomRole.Id,
+    def findCallItemIndex(self, call_item_id, start_index = None):
+        if start_index is None:
+            start_index = self.call_model.index(0, 0, QModelIndex())
+        index_list = self.call_model.match(start_index, # start
+                                           CustomRole.Id, # role
+                                           call_item_id, # value
+                                           1, # hits
+                                           Qt.MatchRecursive)
+        if len(index_list) > 0:
+            return index_list[0]
+        else:
+            return None
+
+    def selectCallItem(self, call_item_id, start_index = None):
+        if start_index is None:
+            start_index = self.call_model.index(0, 0, QModelIndex())
+        index_list = self.call_model.match(start_index,
+                                           CustomRole.Id,
                                            call_item_id, 1, Qt.MatchRecursive)
         if len(index_list) > 0:
             self.call_view.selectionModel().setCurrentIndex(index_list[0], QItemSelectionModel.ClearAndSelect)
@@ -903,28 +1169,6 @@ class MainWindow(QMainWindow):
         while self.src_tab.count() > 0:
             self.src_tab.removeTab(0)
 
-    def setupCallList(self, selected_leak, call_tree_items):
-        item_leak_tuples = []
-        for item in call_tree_items:
-            assert isinstance(item, CallHierarchyItem)
-            call_hierarchy = item.obj
-            assert isinstance(call_hierarchy, CallHistory)
-            if isinstance(selected_leak, DataLeak):
-                dl = call_hierarchy.dataleaks[selected_leak]
-                item_leak_tuples.append((item, dl))
-                pass
-            elif isinstance(selected_leak, CFLeak):
-                cf = call_hierarchy.cfleaks[selected_leak]
-                item_leak_tuples.append((item, cf))
-                pass
-            else:
-                assert False
-
-        self.call_list_model.setupDataWithExisting(selected_leak, item_leak_tuples, self.call_model.root_item.name)
-        self.call_list_view.setModel(self.call_list_model)
-        self.stacked_widget.setCurrentIndex(1)
-        self.stacked_widget.show()
-
     def goToCaller(self):
         call_index = self.call_view.selectionModel().currentIndex()
         if not call_index.isValid():
@@ -954,6 +1198,70 @@ class MainWindow(QMainWindow):
             debug(1, "[goToCallee] Callee ip not in info_map")
             self.src_tab.setCurrentIndex(self.src_empty_tab_index)
 
+    def markAll(self, flag_id, user_comment, call_view):
+        if call_view:
+            call_index = self.call_view.selectionModel().currentIndex()
+            item = self.call_model.data(call_index, CustomRole.CurrentItem)
+        else:
+            lib_index = self.lib_view.selectionModel().currentIndex()
+            item = self.lib_model.data(lib_index, CustomRole.CurrentItem)
+        self.markAllRecursive(flag_id, user_comment, item)
+        self.refreshCurrentLeak()
+
+    def markAllRecursive(self, flag_id, user_comment, item):
+        """ Modify all leaks recursively.
+
+        Args:
+            flag_id: The flag to apply to all leaks. Can be None to leave unchanged
+            user_comment: The comments to apply to all leaks. Can be None to leave unchanged
+        """
+        def markLeaks(element):
+            for k in item.obj.dataleaks:
+                dl = item.obj.dataleaks[k]
+                assert isinstance(dl.meta, LeakMetaInfo)
+                self.markLeak(dl, flag_id, user_comment)
+            for k in item.obj.cfleaks:
+                cf = item.obj.cfleaks[k]
+                assert isinstance(cf.meta, LeakMetaInfo)
+                self.markLeak(cf, flag_id, user_comment)
+
+        if isinstance(item, CallHierarchyItem):
+            markLeaks(item)
+            for child_item in item.child_items:  # type: CallHierarchyItem
+                res = self.markAllRecursive(flag_id, user_comment, child_item)
+        elif isinstance(item, LibHierarchyItem):
+            if isinstance(item.obj, FunctionLeak):
+                # We cannot use leaks within FunctionLeak directly, since they are not mapped back to the CallHierarchy.
+                # Search the global map instead
+                libleaks = []
+                for k in item.obj.dataleaks:
+                    dl = item.obj.dataleaks[k]
+                    libleaks.append(dl)
+                for k in item.obj.cfleaks:
+                    cf = item.obj.cfleaks[k]
+                    libleaks.append(cf)
+                for leak in libleaks:
+                    assert leak.ip in utils.info_map
+                    ip_info = info_map[leak.ip]  # type: IpInfo
+                    for item in ip_info.call_tree_items:
+                        assert isinstance(item, CallHierarchyItem)
+                        call_hierarchy = item.obj
+                        assert isinstance(call_hierarchy, CallHistory)
+                        if isinstance(leak, DataLeak):
+                            self.markLeak(call_hierarchy.dataleaks[leak], flag_id, user_comment)
+                        elif isinstance(leak, CFLeak):
+                            self.markLeak(call_hierarchy.cfleaks[leak], flag_id, user_comment)
+            for child_item in item.child_items:  # type: LibHierarchyItem
+                res = self.markAllRecursive(flag_id, user_comment, child_item)
+        else:
+            debug(0, "[markAllRecursive] Invalid item type: %s" % type(item))
+
+    def markLeak(self, leak, flag_id, user_comment):
+        if flag_id is not None:
+            leak.meta.flag = flag_id
+        if user_comment is not None:
+            leak.meta.comment = user_comment
+
     def handleLeakSelection(self, leak):
         """Display views correctly after leak selection.
 
@@ -962,7 +1270,10 @@ class MainWindow(QMainWindow):
         self.coming_from_call_view is True when coming from call hierarchy or call list selection.
                                    is False when coming from library hierarchy selection or editor indicators.
         """
-
+        if leak is None:
+            debug(1, "Selected leak is filtered")
+            self.statusbar.showMessage('Selected leak is filtered!')
+            return
         if leak.ip in utils.info_map:
             ip_info = info_map[leak.ip]  # type: IpInfo
 
@@ -990,9 +1301,10 @@ class MainWindow(QMainWindow):
                     self.setColorScheme(ColorScheme.BOTH)
 
                 elif len(ip_info.call_tree_items) > 1:
+                    # It might happen that the no. call_tree_items is > 1 but all are filtered.
                     self.selectLibItem(ip_info.lib_tree_item.id)
                     self.setColorScheme(ColorScheme.LIB)
-                    self.setupCallList(leak, ip_info.call_tree_items)
+                    self.createCallList(leak, ip_info.call_tree_items)
 
     def restoreLeakSelection(self, stack_info):
         self.coming_from_call_view = stack_info.coming_from_call_view
@@ -1010,8 +1322,6 @@ class MainWindow(QMainWindow):
             self.createLeakList(ip_info.call_tree_items[leak_idx].obj)
         # Now select the correct leak
         leak = self.selectLeakItem(stack_info.leak_ip)
-        assert leak is not None
-        assert not isinstance(leak, QVariant)
         self.handleLeakSelection(leak)
 
     def updateFlagIcon(self, leak_ip, flag_id):
@@ -1074,10 +1384,10 @@ class MainWindow(QMainWindow):
         if not self.askUnsavedChanges():
             return
 
-        call_hierarchy = self.openFiles()
-        if call_hierarchy is None:
+        self.call_hierarchy = self.openFiles()
+        if self.call_hierarchy is None:
             return
-        lib_hierarchy = call_hierarchy.flatten()
+        lib_hierarchy = self.call_hierarchy.flatten()
 
         """Reset all views and show file dialogs to open pickle and zip files."""
 
@@ -1087,7 +1397,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget.hide()
 
         # Setup
-        self.setupCallTree(call_hierarchy)
+        self.setupCallTree(self.call_hierarchy)
         self.setupLibTree(lib_hierarchy)
         self.setupInfoMap(lib_hierarchy)
         self.setupEmptyTabs()
@@ -1118,6 +1428,30 @@ class MainWindow(QMainWindow):
         else:
             debug(0, "Invalid message box action: {}".format(retval))
             return False
+
+    def askAssert(self, assert_msg, dump_path):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setText("An unexpected assertion happened.")
+        msg.setInformativeText("The current work was stored in " + dump_path)
+        msg.setDetailedText(assert_msg)
+        msg.setWindowTitle("Error")
+        msg.setStandardButtons(QMessageBox.Abort | QMessageBox.Ignore)
+        retval = msg.exec_()
+        if retval & QMessageBox.Abort > 0:
+            sys.exit(ErrorCode.ASSERT)
+        elif retval & QMessageBox.Ignore > 0:
+            pass
+
+    def showAbout(self):
+        msg = QMessageBox()
+        msg.setWindowTitle("About DATA GUI")
+        msg.setIconPixmap(getLogoIconPixmap())
+        msg.setText("DATA GUI version %s" % DATAGUI_VERSION)
+        f = getResourceFile('About.html')
+        msg.setInformativeText(f.read())
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
 
     def getPickleFileFromDialog(self):
         """Show file dialog to open pickle file and return the pickle content."""
@@ -1175,23 +1509,13 @@ class MainWindow(QMainWindow):
         file_info = QFileDialog.getSaveFileName(self, window_title, current_dir, file_format)
         return file_info
 
-    def increaseFontSize(self):
-        """Increase font size for each asm/src editor tab by 1 pt."""
+    def zoomIn(self):
+        self.asm_tab.scaleAllTabs(1)
+        self.src_tab.scaleAllTabs(1)
 
-        debug(5, "Increase font size")
-        self.editor_font_size += 1
-        for i in range(self.asm_tab.count() - 1):
-            self.asm_tab.changeFontsize(i, self.editor_font_size)
-            self.src_tab.changeFontsize(i, self.editor_font_size)
-
-    def decreaseFontSize(self):
-        """Decrease font size for each asm/src editor tab by 1 pt."""
-
-        debug(5, "Decrease font size")
-        self.editor_font_size -= 1
-        for i in range(self.asm_tab.count() - 1):
-            self.asm_tab.changeFontsize(i, self.editor_font_size)
-            self.src_tab.changeFontsize(i, self.editor_font_size)
+    def zoomOut(self):
+        self.asm_tab.scaleAllTabs(-1)
+        self.src_tab.scaleAllTabs(-1)
 
     def updatePrevNextButtons(self):
         """Sets the enabled property of the backward and forward buttons."""
@@ -1205,6 +1529,13 @@ class MainWindow(QMainWindow):
             self.btn_forward.setEnabled(True)
         else:
             self.btn_forward.setEnabled(False)
+
+    def refreshCurrentLeak(self):
+        """Reset views to currently selected leak."""
+
+        stack_info = utils.getCurrentStackInfo()
+        if stack_info:
+            self.restoreLeakSelection(stack_info)
 
     def previousLeak(self):
         """Reset views to previously selected leak."""

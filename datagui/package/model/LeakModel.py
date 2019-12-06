@@ -43,7 +43,8 @@ class LeakItem(QStandardItem):
 class LeakModel(BaseTreeModel):
     def __init__(self):
         super(LeakModel, self).__init__()
-        self.root_item = LeakItem("Leak")
+        self.header = "Leaks"
+        self.none_item = LeakItem("No leaks to display", None)
         self.items = []
 
     # # # # # # # # # # # # #
@@ -54,32 +55,43 @@ class LeakModel(BaseTreeModel):
         if not index.isValid():
             return QVariant()
 
-        if role == Qt.DisplayRole:
-            return self.items[index.row()].name
-        elif role == CustomRole.Leak:
-            if self.items[index.row()].leak is not None:
-                return self.items[index.row()].leak
-        elif role == CustomRole.Ip:
-            if self.items[index.row()].leak is not None:
-                return self.items[index.row()].leak.ip
-        elif role == Qt.DecorationRole:
-            return getIconById(self.items[index.row()].high_prio_flag)
+        if len(self.items) == 0:
+            # We're empty. Display none_item
+            item = self.none_item
+        else:
+            item = self.items[index.row()]
 
+        if role == Qt.DisplayRole or role == Qt.ToolTipRole:
+            return item.name
+        elif role == CustomRole.Leak:
+            if item.leak is not None:
+                return item.leak
+        elif role == CustomRole.Ip:
+            if item.leak is not None:
+                return item.leak.ip
+        elif role == Qt.DecorationRole:
+            return getIconById(item.high_prio_flag)
         return QVariant()
 
     def index(self, row, column, parent):
         if not self.hasIndex(row, column, parent):
             return QModelIndex()
-
-        child_items = self.items[row]
-        if child_items:
-            return self.createIndex(row, column, child_items)
+        if len(self.items) == 0:
+            # We're empty. Display none_item
+            item = self.none_item
+        else:
+            item = self.items[row]
+        if item:
+            return self.createIndex(row, column, item)
         else:
             return QModelIndex()
 
     def rowCount(self, parent):
         if parent.isValid():
             return 0
+        if len(self.items) == 0:
+            # We're empty. Display none_item
+            return 1
         return len(self.items)
 
     # # # # # # # # #
@@ -104,4 +116,3 @@ class LeakModel(BaseTreeModel):
     def updateFlag(self, index, flag_id):
         self.items[index.row()].high_prio_flag = flag_id
         self.dataChanged.emit(index, index, [Qt.DecorationRole])
-
