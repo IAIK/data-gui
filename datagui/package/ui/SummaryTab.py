@@ -18,6 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """
 
+import math
 from PyQt5.QtCore import QSize
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QSizePolicy, QGroupBox, QGridLayout, QHBoxLayout, QButtonGroup, QTextEdit, QLabel
@@ -67,7 +68,7 @@ class SummaryTab(QWidget):
         flags_group_box = QGroupBox("Rating")
         #icon_size = QSize(20, 20)
         font_size = QFontMetrics(self.user_comment.currentFont()).size(0,"A").height()
-        font_size *= 1.1
+        font_size = math.ceil(font_size * 1.1)
         icon_size = QSize(font_size, font_size)
         
         flag_0 = createIconButton(icon_size, LeakFlags.NOLEAK)
