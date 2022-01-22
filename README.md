@@ -17,7 +17,7 @@ You can install DATA GUI via the packages provided in the `dist` folder.
 We recommend to set up a virtual environment. To do so:
 
 ```
-sudo apt-get install virtualenv libxcb-xinerama0-dev
+sudo apt-get install virtualenv libcxb-xinerama0 libxcb-xinerama0-dev
 virtualenv -p /usr/bin/python3 .pyenv
 source .pyenv/bin/activate
 pip install -U setuptools pip click scipy sklearn
