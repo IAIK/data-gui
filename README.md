@@ -17,10 +17,10 @@ You can install DATA GUI via the packages provided in the `dist` folder.
 We recommend to set up a virtual environment. To do so:
 
 ```
-sudo apt-get install virtualenv
-virtualenv -p /usr/bin/python3.5 .pyenv
+sudo apt-get install virtualenv libcxb-xinerama0 libxcb-xinerama0-dev libxcb-image0 libxcb-keysyms, libxcb-render-util0 libxcb-xkb1 libxkbcommon-x11-0 libxcb-icccm4
+virtualenv -p /usr/bin/python3 .pyenv
 source .pyenv/bin/activate
-pip install -U setuptools pip
+pip install -U setuptools pip click scipy sklearn
 pip install dist/datagui-x.x.tar.gz
 ```
 
