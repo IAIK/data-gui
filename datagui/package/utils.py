@@ -380,7 +380,7 @@ def getColor(value, threshold):
     lightness = 100
     # alpha = 255 * (1 - threshold)
     color = QColor()
-    color.setHsl(hue, saturation, lightness, 255)
+    color.setHsl(int(hue), int(saturation), int(lightness), 255)
     return color
 
 def createIconButton(size, flag_id):

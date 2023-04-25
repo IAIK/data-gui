@@ -67,7 +67,7 @@ class SummaryTab(QWidget):
         flags_group_box = QGroupBox("Rating")
         #icon_size = QSize(20, 20)
         font_size = QFontMetrics(self.user_comment.currentFont()).size(0,"A").height()
-        font_size *= 1.1
+        font_size *= 1
         icon_size = QSize(font_size, font_size)
         
         flag_0 = createIconButton(icon_size, LeakFlags.NOLEAK)
